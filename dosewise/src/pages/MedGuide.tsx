@@ -151,7 +151,7 @@ export default function MedGuide() {
           </div>
           <div>
             <p className="text-lg font-bold text-charcoal-900">No medications yet</p>
-            <p className="text-sm text-ink-500 mt-1">Scan a bottle to add one — DoseWise will look it up and fill in the details.</p>
+            <p className="text-sm text-ink-500 mt-1">Scan a bottle to add one — Clarity will look it up and fill in the details.</p>
           </div>
           <button onClick={() => setScannerOpen(true)} className="btn-primary mx-auto px-5 py-3">
             <ScanIcon className="w-4 h-4" /> Scan a medicine bottle

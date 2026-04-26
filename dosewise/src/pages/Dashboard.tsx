@@ -126,7 +126,7 @@ export default function Dashboard() {
       <PageHeader
         eyebrow={greeting}
         title="Welcome back, friend"
-        subtitle="DoseWise wishes you a calm, healthy day. Here's a quick look at where things stand."
+        subtitle="Clarity wishes you a calm, healthy day. Here's a quick look at where things stand."
         actions={
           <>
             <Link to="/risk" className="btn-secondary">

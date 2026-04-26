@@ -272,7 +272,7 @@ export default function BodyMap() {
                 Tap a glowing point on your body
               </h2>
               <p className="text-sm text-ink-600 mt-2 leading-relaxed">
-                Each point is a system DoseWise tracks. Click it to see related
+                Each point is a system Clarity tracks. Click it to see related
                 conditions, your medications that affect it, and labs to keep an
                 eye on.
               </p>

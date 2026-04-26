@@ -4,8 +4,8 @@ import { hashPassword } from "./auth.ts";
 
 initDb();
 
-const DEMO_EMAIL = "demo@dosewise.app";
-const DEMO_PASSWORD = "dosewise123";
+const DEMO_EMAIL = "demo@clarity.app";
+const DEMO_PASSWORD = "clarity123";
 const DEMO_NAME = "Demo User";
 
 const SAMPLE_MEDS = [

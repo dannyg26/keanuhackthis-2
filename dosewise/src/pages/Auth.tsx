@@ -37,8 +37,8 @@ export default function Auth({ mode }: AuthProps) {
   };
 
   const fillDemo = () => {
-    setEmail("demo@dosewise.app");
-    setPassword("dosewise123");
+    setEmail("demo@clarity.app");
+    setPassword("clarity123");
   };
 
   return (
@@ -55,7 +55,7 @@ export default function Auth({ mode }: AuthProps) {
               <p className="section-title">{mode === "login" ? "Welcome back" : "Create your account"}</p>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-charcoal-900 leading-tight">
-              {mode === "login" ? "Log in to DoseWise" : "Make a calmer healthcare day"}
+              {mode === "login" ? "Log in to Clarity" : "Make a calmer healthcare day"}
             </h1>
             <p className="text-sm text-ink-600 mt-2 leading-relaxed">
               {mode === "login"
@@ -139,7 +139,7 @@ export default function Auth({ mode }: AuthProps) {
           </div>
 
           <p className="text-[11px] text-ink-400 text-center mt-4 leading-relaxed">
-            DoseWise is informational only and does not replace medical advice.
+            Clarity is informational only and does not replace medical advice.
           </p>
         </div>
       </main>

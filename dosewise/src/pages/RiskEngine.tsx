@@ -363,7 +363,7 @@ export default function RiskEngine() {
               <p className="section-title">Important</p>
             </div>
             <p className="mt-2 text-sm text-ink-600 leading-relaxed">
-              DoseWise is a risk-awareness tool. It does not diagnose,
+              Clarity is a risk-awareness tool. It does not diagnose,
               prescribe, or replace medical advice from a licensed provider.
             </p>
           </div>

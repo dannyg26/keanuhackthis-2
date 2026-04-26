@@ -19,7 +19,7 @@ export default function Logo({ size = 40, withText = true, textClassName, invert
       >
         <img
           src={logoSrc}
-          alt="DoseWise mascot"
+          alt="Clarity mascot"
           className="absolute inset-0 w-full h-full object-cover"
           style={{ imageRendering: "pixelated" }}
         />
@@ -27,7 +27,7 @@ export default function Logo({ size = 40, withText = true, textClassName, invert
       {withText && (
         <div className="flex flex-col leading-tight">
           <span className={`font-display font-extrabold tracking-tight ${titleColor} ${textClassName ?? "text-lg"}`}>
-            DoseWise
+            Clarity
           </span>
           <span className={`text-[10px] uppercase tracking-[0.18em] font-semibold ${subtitleColor}`}>
             Healthcare Copilot

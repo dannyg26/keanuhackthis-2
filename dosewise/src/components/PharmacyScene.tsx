@@ -2,7 +2,7 @@ import { useState } from "react";
 import logoSrc from "../assets/logo.jpg";
 
 export type PharmacyHotspotId =
-  | "risk" | "adherence" | "bills" | "medguide" | "savings" | "body" | "companion";
+  | "risk" | "adherence" | "bills" | "medguide" | "savings" | "body" | "companion" | "health";
 
 interface PharmacySceneProps {
   activeId: PharmacyHotspotId | null;
@@ -22,31 +22,39 @@ interface BottleProps {
 function Bottle({ x, y, capColor, bodyColor, labelColor = "#fff", hotspotId, active, onHover, onSelect }: BottleProps) {
   const interactive = !!hotspotId;
   return (
+    // Outer group ONLY positions the bottle in the SVG. No CSS transform here so
+    // the SVG translate attribute isn't fighting with a CSS transform.
     <g
       transform={`translate(${x}, ${y})`}
-      style={{
-        cursor: interactive ? "pointer" : "default",
-        transition: "transform 250ms ease",
-        transformOrigin: `${x + 14}px ${y + 50}px`,
-        transform: active ? `translate(${x}px, ${y - 8}px) scale(1.15)` : `translate(${x}px, ${y}px)`,
-      }}
+      style={{ cursor: interactive ? "pointer" : "default" }}
       onMouseEnter={() => hotspotId && onHover?.(hotspotId)}
       onMouseLeave={() => onHover?.(null)}
       onClick={() => hotspotId && onSelect?.(hotspotId)}
     >
-      {/* Bottle body */}
-      <rect x="0" y="14" width="28" height="42" rx="3" fill={bodyColor} stroke="#0f172a" strokeWidth="1" strokeOpacity="0.18" />
-      {/* Label */}
-      <rect x="2" y="24" width="24" height="16" fill={labelColor} opacity="0.95" />
-      <rect x="4" y="28" width="20" height="2" fill="#0f172a" opacity="0.4" />
-      <rect x="4" y="33" width="14" height="1.5" fill="#0f172a" opacity="0.3" />
-      {/* Cap */}
-      <rect x="-2" y="6" width="32" height="10" rx="2" fill={capColor} stroke="#0f172a" strokeWidth="1" strokeOpacity="0.22" />
-      <rect x="-2" y="6" width="32" height="2" fill={capColor} opacity="0.6" />
-      {/* Hover glow */}
-      {active && (
-        <rect x="-4" y="2" width="36" height="58" rx="6" fill="none" stroke={capColor} strokeWidth="2" opacity="0.7" />
-      )}
+      {/* Inner group handles the hover lift + scale, using a LOCAL transform-origin
+          so it scales around the bottle's own center instead of the SVG origin. */}
+      <g
+        style={{
+          transition: "transform 250ms ease",
+          transformBox: "fill-box",
+          transformOrigin: "center center",
+          transform: active ? "translateY(-8px) scale(1.15)" : "none",
+        }}
+      >
+        {/* Bottle body */}
+        <rect x="0" y="14" width="28" height="42" rx="3" fill={bodyColor} stroke="#0f172a" strokeWidth="1" strokeOpacity="0.18" />
+        {/* Label */}
+        <rect x="2" y="24" width="24" height="16" fill={labelColor} opacity="0.95" />
+        <rect x="4" y="28" width="20" height="2" fill="#0f172a" opacity="0.4" />
+        <rect x="4" y="33" width="14" height="1.5" fill="#0f172a" opacity="0.3" />
+        {/* Cap */}
+        <rect x="-2" y="6" width="32" height="10" rx="2" fill={capColor} stroke="#0f172a" strokeWidth="1" strokeOpacity="0.22" />
+        <rect x="-2" y="6" width="32" height="2" fill={capColor} opacity="0.6" />
+        {/* Hover glow */}
+        {active && (
+          <rect x="-4" y="2" width="36" height="58" rx="6" fill="none" stroke={capColor} strokeWidth="2" opacity="0.7" />
+        )}
+      </g>
     </g>
   );
 }
@@ -66,9 +74,10 @@ function Capsule({ x, y, rotate = 0, leftColor, rightColor }: CapsuleProps) {
 }
 
 export default function PharmacyScene({ activeId, onHover, onSelect }: PharmacySceneProps) {
-  const [armPick, setArmPick] = useState(false);
-
   const isActive = (id: PharmacyHotspotId) => activeId === id;
+  // Robot arm has its own local "is bent" state — purely decorative, doesn't open the
+  // AI Companion popup. Tap toggles the bend.
+  const [armPick, setArmPick] = useState(false);
 
   return (
     <svg viewBox="0 0 900 620" className="w-full h-auto" role="img" aria-label="Interactive pharmacy">
@@ -106,14 +115,11 @@ export default function PharmacyScene({ activeId, onHover, onSelect }: PharmacyS
         </pattern>
       </defs>
 
-      {/* Wall + decorative pattern */}
-      <rect x="0" y="0" width="900" height="500" fill="url(#wall)" />
-      <rect x="0" y="0" width="80" height="620" fill="url(#circuits)" opacity="0.7" />
-      <rect x="700" y="100" width="180" height="280" fill="url(#hexagons)" opacity="0.6" />
-
-      {/* Floor */}
-      <rect x="0" y="500" width="900" height="120" fill="url(#floor)" />
-      <line x1="0" y1="500" x2="900" y2="500" stroke="#94a3b8" strokeWidth="1" opacity="0.4" />
+      {/* Decorative wall patterns only — wall + floor colors come from the page background. */}
+      <rect x="0" y="0" width="80" height="500" fill="url(#circuits)" opacity="0.5" />
+      <rect x="700" y="100" width="180" height="280" fill="url(#hexagons)" opacity="0.5" />
+      {/* Subtle floor line where the wall meets the floor */}
+      <line x1="0" y1="500" x2="900" y2="500" stroke="#94a3b8" strokeWidth="1" opacity="0.35" />
 
       {/* ─────────────── Pharmacy shelves (left) ─────────────── */}
       <g>
@@ -133,41 +139,51 @@ export default function PharmacyScene({ activeId, onHover, onSelect }: PharmacyS
           <line key={y} x1="85" y1={y} x2="455" y2={y} stroke="#94a3b8" strokeWidth="2" opacity="0.6" />
         ))}
 
-        {/* ─── Top shelf — non-interactive decorative bottles ─── */}
-        <Bottle x={100} y={90}  capColor="#ec4899" bodyColor="#fbcfe8" />
-        <Bottle x={140} y={90}  capColor="#fb923c" bodyColor="#fed7aa" />
-        <Bottle x={180} y={90}  capColor="#0ea5e9" bodyColor="#bae6fd" />
-        <Bottle x={220} y={90}  capColor="#22c55e" bodyColor="#bbf7d2" />
-        <Bottle x={260} y={90}  capColor="#a855f7" bodyColor="#e9d5ff" />
-        <Bottle x={300} y={90}  capColor="#fbbf24" bodyColor="#fef3c7" />
-        <Bottle x={340} y={90}  capColor="#ec4899" bodyColor="#fbcfe8" />
-        <Bottle x={380} y={90}  capColor="#0f766e" bodyColor="#a7f3d0" />
-        <Bottle x={420} y={90}  capColor="#fb923c" bodyColor="#fed7aa" />
+        {/* ─── Top shelf — decorative bottles, evenly spaced inside each section ─── */}
+        {/* Section 1 (x=85–205): 3 bottles centered, ~9px gaps */}
+        <Bottle x={94}  y={90} capColor="#ec4899" bodyColor="#fbcfe8" />
+        <Bottle x={131} y={90} capColor="#fb923c" bodyColor="#fed7aa" />
+        <Bottle x={168} y={90} capColor="#0ea5e9" bodyColor="#bae6fd" />
+        {/* Section 2 (x=205–335): 3 bottles centered */}
+        <Bottle x={214} y={90} capColor="#22c55e" bodyColor="#bbf7d2" />
+        <Bottle x={251} y={90} capColor="#a855f7" bodyColor="#e9d5ff" />
+        <Bottle x={288} y={90} capColor="#fbbf24" bodyColor="#fef3c7" />
+        {/* Section 3 (x=335–455): 3 bottles centered */}
+        <Bottle x={344} y={90} capColor="#ec4899" bodyColor="#fbcfe8" />
+        <Bottle x={381} y={90} capColor="#0f766e" bodyColor="#a7f3d0" />
+        <Bottle x={418} y={90} capColor="#fb923c" bodyColor="#fed7aa" />
 
-        {/* ─── Second shelf — INTERACTIVE feature bottles ─── */}
+        {/* ─── Second shelf — INTERACTIVE feature bottles, 2-3-2 layout ─── */}
+        {/* Section 1 — risk, adherence */}
         <Bottle
-          x={100} y={180} capColor="#fb923c" bodyColor="#fed7aa"
+          x={110} y={180} capColor="#fb923c" bodyColor="#fed7aa"
           hotspotId="risk" active={isActive("risk")} onHover={onHover} onSelect={onSelect}
         />
         <Bottle
-          x={150} y={180} capColor="#ec4899" bodyColor="#fbcfe8"
+          x={162} y={180} capColor="#ec4899" bodyColor="#fbcfe8"
           hotspotId="adherence" active={isActive("adherence")} onHover={onHover} onSelect={onSelect}
         />
+        {/* Section 2 — bills, medguide, savings */}
         <Bottle
-          x={235} y={180} capColor="#a855f7" bodyColor="#e9d5ff"
+          x={215} y={180} capColor="#a855f7" bodyColor="#e9d5ff"
           hotspotId="bills" active={isActive("bills")} onHover={onHover} onSelect={onSelect}
         />
         <Bottle
-          x={290} y={180} capColor="#22c55e" bodyColor="#bbf7d2"
+          x={255} y={180} capColor="#22c55e" bodyColor="#bbf7d2"
           hotspotId="medguide" active={isActive("medguide")} onHover={onHover} onSelect={onSelect}
         />
         <Bottle
-          x={365} y={180} capColor="#fbbf24" bodyColor="#fef3c7"
+          x={295} y={180} capColor="#fbbf24" bodyColor="#fef3c7"
           hotspotId="savings" active={isActive("savings")} onHover={onHover} onSelect={onSelect}
         />
+        {/* Section 3 — body, companion */}
         <Bottle
-          x={415} y={180} capColor="#0ea5e9" bodyColor="#bae6fd"
+          x={355} y={180} capColor="#0ea5e9" bodyColor="#bae6fd"
           hotspotId="body" active={isActive("body")} onHover={onHover} onSelect={onSelect}
+        />
+        <Bottle
+          x={407} y={180} capColor="#0f766e" bodyColor="#a7f3d0"
+          hotspotId="companion" active={isActive("companion")} onHover={onHover} onSelect={onSelect}
         />
 
         {/* ─── Third shelf — capsule strips and packs ─── */}
@@ -183,74 +199,67 @@ export default function PharmacyScene({ activeId, onHover, onSelect }: PharmacyS
           <text x="25" y="18" textAnchor="middle" fontSize="8" fontWeight="700" fill="#0369a1">RX-12</text>
           <text x="25" y="30" textAnchor="middle" fontSize="6" fill="#0369a1">120 mg</text>
         </g>
-        <Bottle x={220} y={275} capColor="#22c55e" bodyColor="#bbf7d2" />
-        <Bottle x={260} y={275} capColor="#a855f7" bodyColor="#e9d5ff" />
-        <Bottle x={300} y={275} capColor="#fbbf24" bodyColor="#fef3c7" />
-        <Bottle x={350} y={275} capColor="#ec4899" bodyColor="#fbcfe8" />
-        <Bottle x={395} y={275} capColor="#0ea5e9" bodyColor="#bae6fd" />
+        {/* Section 2 — 3 bottles, evenly spaced */}
+        <Bottle x={217} y={275} capColor="#22c55e" bodyColor="#bbf7d2" />
+        <Bottle x={257} y={275} capColor="#a855f7" bodyColor="#e9d5ff" />
+        <Bottle x={297} y={275} capColor="#fbbf24" bodyColor="#fef3c7" />
+        {/* Section 3 — 2 bottles, centered */}
+        <Bottle x={356} y={275} capColor="#ec4899" bodyColor="#fbcfe8" />
+        <Bottle x={405} y={275} capColor="#0ea5e9" bodyColor="#bae6fd" />
 
-        {/* ─── Bottom shelf — boxes ─── */}
-        <g transform="translate(95, 365)">
-          <rect width="38" height="44" fill="#fed7aa" stroke="#fb923c" strokeWidth="1" />
-          <rect x="3" y="14" width="32" height="3" fill="#fb923c" />
-          <text x="19" y="33" textAnchor="middle" fontSize="6" fontWeight="700" fill="#9a3412">DOSE</text>
-        </g>
-        <g transform="translate(140, 365)">
-          <rect width="38" height="44" fill="#e9d5ff" stroke="#a855f7" strokeWidth="1" />
-          <rect x="3" y="14" width="32" height="3" fill="#a855f7" />
-          <text x="19" y="33" textAnchor="middle" fontSize="6" fontWeight="700" fill="#581c87">CARE</text>
-        </g>
-        <g transform="translate(225, 365)">
-          <rect width="38" height="44" fill="#bbf7d2" stroke="#22c55e" strokeWidth="1" />
-          <rect x="3" y="14" width="32" height="3" fill="#22c55e" />
-          <text x="19" y="33" textAnchor="middle" fontSize="6" fontWeight="700" fill="#15803d">WISE</text>
-        </g>
-        <g transform="translate(270, 365)">
-          <rect width="38" height="44" fill="#fbcfe8" stroke="#ec4899" strokeWidth="1" />
-          <rect x="3" y="14" width="32" height="3" fill="#ec4899" />
-          <text x="19" y="33" textAnchor="middle" fontSize="6" fontWeight="700" fill="#831843">PILL</text>
-        </g>
-        <g transform="translate(355, 365)">
-          <rect width="38" height="44" fill="#fef3c7" stroke="#fbbf24" strokeWidth="1" />
-          <rect x="3" y="14" width="32" height="3" fill="#fbbf24" />
-          <text x="19" y="33" textAnchor="middle" fontSize="6" fontWeight="700" fill="#92400e">CARE</text>
-        </g>
-        <g transform="translate(400, 365)">
-          <rect width="38" height="44" fill="#bae6fd" stroke="#0ea5e9" strokeWidth="1" />
-          <rect x="3" y="14" width="32" height="3" fill="#0ea5e9" />
-          <text x="19" y="33" textAnchor="middle" fontSize="6" fontWeight="700" fill="#0369a1">RX</text>
-        </g>
+        {/* ─── Bottom shelf — horizontal rectangle boxes (3 rows × 2 cols) ─── */}
+        {[
+          { row: 0, col: 0, fill: "#fed7aa", stroke: "#fb923c", text: "#9a3412", label: "DOSE" },
+          { row: 0, col: 1, fill: "#e9d5ff", stroke: "#a855f7", text: "#581c87", label: "CARE" },
+          { row: 1, col: 0, fill: "#bbf7d2", stroke: "#22c55e", text: "#15803d", label: "WISE" },
+          { row: 1, col: 1, fill: "#fbcfe8", stroke: "#ec4899", text: "#831843", label: "PILL" },
+          { row: 2, col: 0, fill: "#fef3c7", stroke: "#fbbf24", text: "#92400e", label: "CARE" },
+          { row: 2, col: 1, fill: "#bae6fd", stroke: "#0ea5e9", text: "#0369a1", label: "RX"   },
+        ].map(b => {
+          const x = 95 + b.col * 175;     // two columns
+          const y = 338 + b.row * 25;     // three rows, ~25px tall each
+          return (
+            <g key={`${b.row}-${b.col}`} transform={`translate(${x}, ${y})`}>
+              <rect width="170" height="22" rx="2" fill={b.fill} stroke={b.stroke} strokeWidth="1" />
+              <rect x="0" y="0" width="6" height="22" fill={b.stroke} opacity="0.85" />
+              <text x="14" y="15" fontSize="7" fontWeight="700" fill={b.text}>{b.label}</text>
+            </g>
+          );
+        })}
       </g>
 
       {/* ─────────────── Robot arm (interactive — companion) ─────────────── */}
+      {/* Each rotating segment is wrapped: outer <g> translates the pivot to (0,0)
+          (via SVG transform attr), inner <g> rotates around (0,0) (via CSS).
+          That keeps SVG and CSS transforms from fighting each other. */}
       <g
         style={{ cursor: "pointer" }}
-        onMouseEnter={() => { onHover("companion"); setArmPick(true); }}
-        onMouseLeave={() => { onHover(null); setArmPick(false); }}
-        onClick={() => onSelect("companion")}
+        onClick={() => setArmPick((p) => !p)}
       >
-        {/* Mounting bracket */}
+        {/* Mounting bracket — fixed */}
         <rect x="475" y="80" width="40" height="20" rx="3" fill="#475569" />
-        {/* Upper arm */}
-        <g style={{ transition: "transform 600ms ease", transformOrigin: "495px 100px",
-                    transform: armPick ? "rotate(15deg)" : "rotate(-5deg)" }}>
-          <rect x="486" y="95" width="18" height="100" rx="6" fill="#e2e8f0" stroke="#475569" strokeWidth="1.5" />
-          <circle cx="495" cy="100" r="10" fill="#475569" />
-          {/* Elbow */}
-          <circle cx="495" cy="190" r="8" fill="#475569" />
-          {/* Forearm */}
-          <g style={{ transition: "transform 600ms ease", transformOrigin: "495px 190px",
-                      transform: armPick ? "rotate(40deg)" : "rotate(20deg)" }}>
-            <rect x="488" y="190" width="14" height="80" rx="5" fill="#cbd5e1" stroke="#475569" strokeWidth="1.5" />
-            <circle cx="495" cy="270" r="6" fill="#475569" />
+
+        {/* Upper arm — pivot at (495, 100). Animate via SVG transform attribute
+            (NOT CSS) so transform-origin / box quirks can't kick in. We also
+            CSS-transition the SVG `transform` attribute for smoothness. */}
+        <g transform={`translate(495 100) rotate(${armPick ? 15 : -5})`} style={{ transition: "transform 600ms ease" }}>
+          <rect x="-9" y="-5" width="18" height="100" rx="6" fill="#e2e8f0" stroke="#475569" strokeWidth="1.5" />
+          <circle cx="0" cy="0" r="10" fill="#475569" />
+
+          {/* Elbow + forearm — pivot at elbow (0, 90) relative to upper arm */}
+          <g transform={`translate(0 90) rotate(${armPick ? 40 : 20})`} style={{ transition: "transform 600ms ease" }}>
+            <circle cx="0" cy="0" r="8" fill="#475569" />
+            <rect x="-7" y="0" width="14" height="80" rx="5" fill="#cbd5e1" stroke="#475569" strokeWidth="1.5" />
+            <circle cx="0" cy="80" r="6" fill="#475569" />
             {/* Gripper holding a pill bottle */}
-            <g transform="translate(480, 270)">
+            <g transform="translate(-15 80)">
               <rect x="0" y="0" width="6" height="20" fill="#475569" />
               <rect x="24" y="0" width="6" height="20" fill="#475569" />
               <Bottle x={3} y={4} capColor={isActive("companion") ? "#10b981" : "#0f766e"} bodyColor="#a7f3d0" />
             </g>
           </g>
         </g>
+
         {isActive("companion") && (
           <circle cx="495" cy="200" r="80" fill="none" stroke="#0f766e" strokeWidth="2" opacity="0.4">
             <animate attributeName="r" values="60;90;60" dur="2s" repeatCount="indefinite" />
@@ -280,12 +289,12 @@ export default function PharmacyScene({ activeId, onHover, onSelect }: PharmacyS
         </g>
       </g>
 
-      {/* ─────────────── Computer (interactive — bills/dashboard) ─────────────── */}
+      {/* ─────────────── Computer (interactive — Health at a Glance) ─────────────── */}
       <g
         style={{ cursor: "pointer" }}
-        onMouseEnter={() => onHover("bills")}
+        onMouseEnter={() => onHover("health")}
         onMouseLeave={() => onHover(null)}
-        onClick={() => onSelect("bills")}
+        onClick={() => onSelect("health")}
       >
         {/* Stand */}
         <rect x="725" y="430" width="60" height="20" fill="#475569" />
@@ -295,7 +304,7 @@ export default function PharmacyScene({ activeId, onHover, onSelect }: PharmacyS
         {/* Screen */}
         <rect x="650" y="200" width="200" height="220" rx="4" fill="url(#screen)" />
         {/* Glow when active */}
-        {(isActive("bills") || activeId === null) && (
+        {(isActive("health") || activeId === null) && (
           <rect x="640" y="190" width="220" height="240" rx="8" fill="url(#screenGlow)" />
         )}
 
@@ -304,7 +313,7 @@ export default function PharmacyScene({ activeId, onHover, onSelect }: PharmacyS
           {/* Title bar */}
           <rect width="180" height="14" rx="3" fill="rgba(255,255,255,0.15)" />
           <circle cx="8" cy="7" r="2.5" fill="#10b981" />
-          <text x="16" y="10" fontSize="7" fontWeight="700" fill="white">DoseWise</text>
+          <text x="16" y="10" fontSize="7" fontWeight="700" fill="white">Clarity</text>
 
           {/* KPI cards */}
           <rect x="0"  y="22" width="55" height="38" rx="3" fill="#fde68a" />
@@ -341,23 +350,6 @@ export default function PharmacyScene({ activeId, onHover, onSelect }: PharmacyS
         </circle>
       </g>
 
-      {/* ─────────────── Discount sign (interactive — savings) ─────────────── */}
-      <g
-        style={{ cursor: "pointer", transformOrigin: "750px 95px",
-                 transform: isActive("savings") ? "scale(1.08)" : "scale(1)",
-                 transition: "transform 250ms ease" }}
-        onMouseEnter={() => onHover("savings")}
-        onMouseLeave={() => onHover(null)}
-        onClick={() => onSelect("savings")}
-      >
-        {/* Hanging string */}
-        <line x1="750" y1="20" x2="750" y2="60" stroke="#475569" strokeWidth="1" />
-        {/* Tag */}
-        <path d="M700 60 L800 60 L820 95 L800 130 L700 130 L680 95 Z" fill="#fb923c" stroke="#9a3412" strokeWidth="1.5" />
-        <circle cx="750" cy="70" r="3" fill="#9a3412" />
-        <text x="750" y="100" textAnchor="middle" fontSize="22" fontWeight="800" fill="white">SAVE</text>
-        <text x="750" y="118" textAnchor="middle" fontSize="11" fontWeight="700" fill="white" opacity="0.95">UP TO 80%</text>
-      </g>
 
       {/* ─────────────── Anatomy poster (interactive — body) ─────────────── */}
       <g
@@ -395,7 +387,7 @@ export default function PharmacyScene({ activeId, onHover, onSelect }: PharmacyS
                      background: "white", boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
                      border: "2px solid #d1fae5" }}
           >
-            <img src={logoSrc} alt="DoseWise mascot" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <img src={logoSrc} alt="Clarity mascot" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </div>
         </foreignObject>
       </g>
