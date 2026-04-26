@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    @apply font-sans text-ink-800 bg-cream-50 antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight text-ink-900;
+  }
+  ::selection {
+    @apply bg-brand-200 text-brand-900;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-2xl border border-ink-100 shadow-card p-6;
+  }
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-soft hover:-translate-y-0.5;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm
+           transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn text-white bg-charcoal-900 shadow-soft hover:bg-charcoal-800 hover:shadow-lg;
+  }
+  .btn-secondary {
+    @apply btn bg-white border border-ink-200 text-ink-800 hover:border-brand-400 hover:text-brand-700;
+  }
+  .btn-ghost {
+    @apply btn text-ink-600 hover:bg-ink-100 hover:text-ink-900;
+  }
+  .input {
+    @apply w-full px-3.5 py-2.5 rounded-xl border border-ink-200 bg-white text-ink-900
+           placeholder:text-ink-400
+           focus:outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100
+           transition-all duration-150;
+  }
+  .label {
+    @apply block text-sm font-medium text-ink-800 mb-1.5;
+  }
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-wider text-brand-700;
+  }
+  .nav-link {
+    @apply flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-ink-600
+           transition-colors duration-150 hover:bg-brand-50 hover:text-brand-700;
+  }
+  .nav-link-active {
+    @apply bg-brand-50 text-brand-700 shadow-glow;
+  }
+}
+
+/* Custom scrollbar */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #d3f6f3;
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #a8ede9;
+}
