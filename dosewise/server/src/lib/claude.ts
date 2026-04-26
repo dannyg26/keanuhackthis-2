@@ -15,31 +15,6 @@ Your job:
 - You do NOT diagnose or prescribe. For personal medical decisions, briefly suggest consulting a provider.
 - Do NOT use emojis. Use plain language and short sentences.`;
 
-// Fallback data used only when openFDA is unreachable
-const MED_SAFETY_FALLBACK: Record<string, string> = {
-  tylenol:       "Acetaminophen (Tylenol): standard adult dose 325–650 mg every 4–6 hours. Max 3,000–4,000 mg/day. Exceeding the limit risks serious liver damage.",
-  acetaminophen: "Acetaminophen: max 4,000 mg/day. Liver damage is the primary overdose risk.",
-  advil:         "Ibuprofen (Advil): 200–400 mg every 4–6 hours, OTC max 1,200 mg/day. Risks: stomach irritation, kidney stress. Take with food.",
-  ibuprofen:     "Ibuprofen: OTC max 1,200 mg/day. GI bleeding and kidney stress risk with high doses.",
-  motrin:        "Ibuprofen (Motrin): 200–400 mg every 4–6 hours, OTC max 1,200 mg/day.",
-  aspirin:       "Aspirin: 325–650 mg every 4–6 hours, max 4 g/day. Never give to children.",
-  aleve:         "Naproxen (Aleve): 220 mg every 8–12 hours, OTC max 660 mg/day.",
-  naproxen:      "Naproxen: OTC max 660 mg/day. GI and cardiovascular risk with long-term use.",
-  benadryl:      "Diphenhydramine (Benadryl): 25–50 mg every 4–6 hours. Causes drowsiness. Max 300 mg/day.",
-  diphenhydramine: "Diphenhydramine: sedating antihistamine. Max 300 mg/day.",
-  claritin:      "Loratadine (Claritin): 10 mg once daily. Non-drowsy.",
-  zyrtec:        "Cetirizine (Zyrtec): 10 mg once daily. May cause mild drowsiness.",
-  melatonin:     "Melatonin: 0.5–5 mg before bed. Not habit-forming.",
-  pepcid:        "Famotidine (Pepcid): 20 mg once or twice daily for heartburn.",
-  omeprazole:    "Omeprazole: 20 mg once daily. Long-term use may reduce magnesium and B12.",
-  prilosec:      "Omeprazole (Prilosec): 20 mg once daily.",
-  metformin:     "Metformin: take with meals. Lactic acidosis risk with impaired kidneys.",
-  lisinopril:    "Lisinopril: may raise potassium levels. May cause dry cough.",
-  atorvastatin:  "Atorvastatin: avoid grapefruit juice. Report muscle pain immediately.",
-  sertraline:    "Sertraline: do not stop abruptly. Serotonin syndrome risk with tramadol or MAOIs.",
-  warfarin:      "Warfarin: many interactions — ibuprofen and aspirin increase bleeding risk.",
-};
-
 // Maps keyword → FDA search terms (brand name or generic)
 const MED_FDA_TERMS: Record<string, { field: string; term: string }[]> = {
   tylenol:       [{ field: "openfda.brand_name", term: "tylenol" }, { field: "openfda.generic_name", term: "acetaminophen" }],
@@ -119,12 +94,7 @@ async function medSafetyBlock(text: string): Promise<string> {
   const lines: string[] = [];
   for (const key of detected) {
     const fdaData = await fetchFDALabel(key);
-    if (fdaData) {
-      lines.push(fdaData);
-    } else {
-      const fallback = MED_SAFETY_FALLBACK[key];
-      if (fallback) lines.push(`- ${fallback} (source: reference data)`);
-    }
+    if (fdaData) lines.push(fdaData);
   }
 
   return lines.length
