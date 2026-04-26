@@ -17,16 +17,22 @@ initDb();
 const app = express();
 
 const allowedOrigin = process.env.CORS_ORIGIN ?? "http://localhost:5173";
-app.use(cors({
-  origin: (origin, cb) => {
-    // Allow no-origin (curl, mobile apps) and the configured one
-    if (!origin || origin === allowedOrigin || /\.local|localhost|127\.0\.0\.1|192\.168\.|10\.|172\./.test(origin)) {
-      return cb(null, true);
-    }
-    return cb(null, false);
-  },
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      // Allow no-origin (curl, mobile apps) and the configured one
+      if (
+        !origin ||
+        origin === allowedOrigin ||
+        /\.local|localhost|127\.0\.0\.1|192\.168\.|10\.|172\./.test(origin)
+      ) {
+        return cb(null, true);
+      }
+      return cb(null, false);
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/api/health", (_req, res) => {
@@ -50,7 +56,9 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 const port = Number(process.env.PORT ?? 3001);
 app.listen(port, () => {
   console.log(`DoseWise API listening on http://localhost:${port}`);
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.log("  (companion using fallback replies — set ANTHROPIC_API_KEY for Claude)");
+  if (!process.env.GROQ_API_KEY) {
+    console.log(
+      "  (companion using fallback replies — set GROQ_API_KEY to enable AI)",
+    );
   }
 });
