@@ -77,7 +77,7 @@ export function useVoice(opts: UseVoiceOptions = {}) {
 
     const r = new SR();
     r.lang = "en-US";
-    r.continuous = false;
+    r.continuous = true;
     r.interimResults = true;
     r.maxAlternatives = 1;
 
@@ -86,7 +86,7 @@ export function useVoice(opts: UseVoiceOptions = {}) {
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const result = e.results[i];
-        if (result.isFinal) finalText += result[0].transcript;
+        if (result.isFinal) finalText += result[0].transcript + " ";
         else interim += result[0].transcript;
       }
       setState(s => ({ ...s, transcript: (finalText + interim).trim() }));

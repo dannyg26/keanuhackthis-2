@@ -100,10 +100,24 @@ export default function CompanionPanel({
   };
 
   const voice = useVoice({ onFinalTranscript: handleFinal, mouthAmpRef });
+  const voiceSpeakRef = useRef(voice.speak);
+  useEffect(() => { voiceSpeakRef.current = voice.speak; }, [voice.speak]);
 
-  // Replace greeting with mood tip after a few seconds
+  // Auto-greet with voice when the companion first mounts
   useEffect(() => {
-    const t1 = setTimeout(() => setMessage(TIPS_BY_MOOD[mood][0]), 4000);
+    const name = userName === "friend" ? "friend" : userName.split(" ")[0];
+    const greeting = `Hi ${name}! I'm Dose, your healthcare copilot. I can help you check your medication risks, track your adherence, decode medical bills, and explore how your meds affect your body. Tap the mic or click Talk to Dose to chat with me anytime!`;
+    const t = setTimeout(() => {
+      setMessage(greeting);
+      voiceSpeakRef.current(greeting);
+    }, 1200);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Rotate tips while idle (after initial greeting)
+  useEffect(() => {
+    const t1 = setTimeout(() => setMessage(TIPS_BY_MOOD[mood][0]), 12000);
     return () => clearTimeout(t1);
   }, [mood]);
 
@@ -116,7 +130,7 @@ export default function CompanionPanel({
         setMessage(TIPS_BY_MOOD[mood][next]);
         return next;
       });
-    }, 9000);
+    }, 12000);
     return () => clearInterval(id);
   }, [mood, voice.speaking, voice.listening]);
 
@@ -129,10 +143,13 @@ export default function CompanionPanel({
   };
 
   const toggleMic = () => {
-    if (voice.listening) voice.stop();
-    else {
-      voice.cancel();
+    if (voice.listening) {
+      voice.stop();
+    } else if (voice.supported.recognition) {
+      voice.cancel(); // stop Dose speaking before listening
       voice.start();
+    } else {
+      voice.speak(message);
     }
   };
 
@@ -216,7 +233,6 @@ export default function CompanionPanel({
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={toggleMic}
-              disabled={!voice.supported.recognition}
               className={`btn justify-center ${
                 voice.listening
                   ? "bg-coral-500 text-white shadow-soft hover:brightness-105"

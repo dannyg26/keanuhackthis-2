@@ -535,13 +535,38 @@ export default function HealthCompanion({
       )}
 
       {message && (
-        <div className="absolute top-3 right-3 sm:top-6 sm:right-6 max-w-[60%] sm:max-w-[55%] animate-slideUp pointer-events-none">
-          <div className="relative bg-white rounded-2xl rounded-bl-md shadow-soft border border-ink-100 px-3.5 py-2.5">
+        <div className="absolute top-[25%] right-2 sm:right-3 max-w-[38%] animate-slideUp pointer-events-none">
+          <div className="relative bg-white rounded-2xl rounded-l-lg shadow-soft border border-ink-100 px-3 py-2.5">
+            {/* Voice waveform — animated bars while Dose is speaking */}
+            {speaking && (
+              <>
+                <style>{`@keyframes voiceBar{from{transform:scaleY(0.2);}to{transform:scaleY(1);}}`}</style>
+                <div className="flex items-end gap-[3px] h-4 mb-1.5">
+                  {[0, 0.1, 0.22, 0.14, 0.06].map((delay, i) => (
+                    <div
+                      key={i}
+                      className="w-[3px] rounded-full bg-brand-400"
+                      style={{
+                        height: "100%",
+                        transformOrigin: "bottom",
+                        transform: "scaleY(0.2)",
+                        animation: `voiceBar 0.5s ease-in-out ${delay}s infinite alternate`,
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
             <p className="text-xs sm:text-sm text-ink-800 leading-snug">{message}</p>
-            <span
-              className="absolute -bottom-2 left-4 w-3 h-3 bg-white border-l border-b border-ink-100 rotate-45"
-              aria-hidden
-            />
+            {/* Arrow pointing LEFT toward the avatar's mouth */}
+            <svg
+              className="absolute left-0 top-4 -translate-x-full"
+              width="10" height="16" viewBox="0 0 10 16"
+              aria-hidden="true"
+            >
+              <path d="M10,0 L10,16 L1,8 Z" fill="white" />
+              <path d="M10,0.5 L1.5,8 L10,15.5" stroke="#e5e7eb" strokeWidth="1" fill="none" />
+            </svg>
           </div>
         </div>
       )}

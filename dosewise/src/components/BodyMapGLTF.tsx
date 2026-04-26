@@ -1,8 +1,20 @@
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Billboard, ContactShadows, Environment, Html, OrbitControls, useGLTF } from "@react-three/drei";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import {
+  Billboard,
+  ContactShadows,
+  Environment,
+  Html,
+  OrbitControls,
+  useGLTF,
+} from "@react-three/drei";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { BODY_REGIONS, HOTSPOT_FRACTIONS, type BodyRegion, type BodySystem } from "../data/bodyMap";
+import {
+  BODY_REGIONS,
+  HOTSPOT_FRACTIONS,
+  type BodyRegion,
+  type BodySystem,
+} from "../data/bodyMap";
 
 interface BodyMapGLTFProps {
   modelUrl: string;
@@ -22,7 +34,10 @@ interface ModelProps {
 }
 
 /** Compute a Box3 that includes only visible meshes. */
-function computeVisibleBounds(root: THREE.Object3D): { center: THREE.Vector3; size: THREE.Vector3 } {
+function computeVisibleBounds(root: THREE.Object3D): {
+  center: THREE.Vector3;
+  size: THREE.Vector3;
+} {
   root.updateMatrixWorld(true);
   const box = new THREE.Box3();
   let found = false;
@@ -33,7 +48,12 @@ function computeVisibleBounds(root: THREE.Object3D): { center: THREE.Vector3; si
     const geomBox = mesh.geometry.boundingBox;
     if (!geomBox) return;
     const meshBox = geomBox.clone().applyMatrix4(mesh.matrixWorld);
-    if (!found) { box.copy(meshBox); found = true; } else { box.union(meshBox); }
+    if (!found) {
+      box.copy(meshBox);
+      found = true;
+    } else {
+      box.union(meshBox);
+    }
   });
   if (!found) {
     return { center: new THREE.Vector3(), size: new THREE.Vector3(1, 1, 1) };
@@ -47,7 +67,10 @@ function computeVisibleBounds(root: THREE.Object3D): { center: THREE.Vector3; si
 /* ───────── Glowing hotspot ───────── */
 
 function Hotspot({
-  region, position, active, onSelect,
+  region,
+  position,
+  active,
+  onSelect,
 }: {
   region: BodyRegion;
   position: [number, number, number];
@@ -87,17 +110,36 @@ function Hotspot({
         {/* Solid colored dot */}
         <mesh
           renderOrder={2}
-          onPointerOver={(e) => { e.stopPropagation(); setHover(true); document.body.style.cursor = "pointer"; }}
-          onPointerOut={() => { setHover(false); document.body.style.cursor = "default"; }}
-          onClick={(e) => { e.stopPropagation(); onSelect(region.id); }}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setHover(true);
+            document.body.style.cursor = "pointer";
+          }}
+          onPointerOut={() => {
+            setHover(false);
+            document.body.style.cursor = "default";
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect(region.id);
+          }}
         >
           <circleGeometry args={[dotR, 28]} />
-          <meshBasicMaterial color={region.color} depthTest={false} transparent />
+          <meshBasicMaterial
+            color={region.color}
+            depthTest={false}
+            transparent
+          />
         </mesh>
         {/* White center highlight */}
         <mesh position={[-dotR / 4, dotR / 4, 0.0001]} renderOrder={3}>
           <circleGeometry args={[dotR / 3, 16]} />
-          <meshBasicMaterial color="white" transparent opacity={0.9} depthTest={false} />
+          <meshBasicMaterial
+            color="white"
+            transparent
+            opacity={0.9}
+            depthTest={false}
+          />
         </mesh>
 
         {(hover || active) && (
@@ -123,7 +165,13 @@ function Hotspot({
 
 /* ───────── Model + hotspots ───────── */
 
-function Model({ url, paused, targetSize, activeId, onSelectZone }: ModelProps) {
+function Model({
+  url,
+  paused,
+  targetSize,
+  activeId,
+  onSelectZone,
+}: ModelProps) {
   const gltf = useGLTF(url);
   const groupRef = useRef<THREE.Group>(null);
 
@@ -200,11 +248,52 @@ function Model({ url, paused, targetSize, activeId, onSelectZone }: ModelProps) 
   );
 }
 
+/* ───────── Camera animator ───────── */
+
+function CameraAnimator({
+  activeId,
+  targetSize,
+  orbitRef,
+}: {
+  activeId: BodySystem | null;
+  targetSize: number;
+  orbitRef: { current: any };
+}) {
+  const { camera } = useThree();
+  const focusY = activeId
+    ? (HOTSPOT_FRACTIONS[activeId]?.y ?? 0) * targetSize
+    : 0;
+  const targetFov = activeId ? 24 : 38;
+
+  useFrame(() => {
+    if (orbitRef.current) {
+      const dy = focusY - orbitRef.current.target.y;
+      if (Math.abs(dy) > 0.002) {
+        orbitRef.current.target.y += dy * 0.08;
+        orbitRef.current.update();
+      }
+    }
+    const cam = camera as THREE.PerspectiveCamera;
+    const dfov = targetFov - cam.fov;
+    if (Math.abs(dfov) > 0.05) {
+      cam.fov += dfov * 0.06;
+      cam.updateProjectionMatrix();
+    }
+  });
+
+  return null;
+}
+
 export default function BodyMapGLTF({
-  modelUrl, autoRotateInitial = true, targetSize = 3, activeId, onSelectZone,
+  modelUrl,
+  autoRotateInitial = true,
+  targetSize = 3,
+  activeId,
+  onSelectZone,
 }: BodyMapGLTFProps) {
   const [paused, setPaused] = useState(!autoRotateInitial);
   const [mounted, setMounted] = useState(false);
+  const orbitRef = useRef<any>(null);
   useEffect(() => setMounted(true), []);
 
   const cameraZ = targetSize * 1.7;
@@ -229,7 +318,11 @@ export default function BodyMapGLTF({
             castShadow
             shadow-mapSize={[2048, 2048]}
           />
-          <directionalLight position={[-4, 2, -3]} intensity={0.4} color="#fde7d3" />
+          <directionalLight
+            position={[-4, 2, -3]}
+            intensity={0.4}
+            color="#fde7d3"
+          />
           <Environment preset="apartment" />
 
           <Suspense fallback={null}>
@@ -251,7 +344,13 @@ export default function BodyMapGLTF({
             color="#0c3a37"
           />
 
+          <CameraAnimator
+            activeId={activeId}
+            targetSize={targetSize}
+            orbitRef={orbitRef}
+          />
           <OrbitControls
+            ref={orbitRef}
             enableZoom
             enablePan={false}
             minDistance={cameraZ * 0.5}

@@ -5,8 +5,17 @@ import StatCard from "../components/StatCard";
 import RiskGauge from "../components/RiskGauge";
 import CompanionPanel from "../components/CompanionPanel";
 import {
-  ShieldIcon, PillIcon, ReceiptIcon, AlertIcon,
-  ArrowRightIcon, ClockIcon, FlameIcon, SparklesIcon, HeartPulseIcon, TagIcon, DollarIcon,
+  ShieldIcon,
+  PillIcon,
+  ReceiptIcon,
+  AlertIcon,
+  ArrowRightIcon,
+  ClockIcon,
+  FlameIcon,
+  SparklesIcon,
+  HeartPulseIcon,
+  TagIcon,
+  DollarIcon,
 } from "../components/Icon";
 import { api } from "../lib/api";
 import { useApi } from "../lib/useApi";
@@ -18,7 +27,9 @@ const DEFAULT_RISK = {
   questions: [] as string[],
 };
 
-function todayStr(): string { return new Date().toISOString().slice(0, 10); }
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 function lastNDays(n: number): string[] {
   const out: string[] = [];
   const today = new Date();
@@ -36,6 +47,7 @@ export default function Dashboard() {
   const couponsQ = useApi(() => api.coupons.list());
   const billsQ = useApi(() => api.bills.list());
   const riskQ = useApi(() => api.risk.latest());
+  const meQ = useApi(() => api.auth.me());
 
   const meds = medsQ.data?.medications ?? [];
   const adherenceLogs = adherenceQ.data?.logs ?? [];
@@ -45,9 +57,10 @@ export default function Dashboard() {
   const billItems = latestBill?.items ?? [];
 
   const risk = riskQ.data?.assessment?.result ?? DEFAULT_RISK;
-  const savedCoupons = useMemo(() => coupons.filter(c => c.saved), [coupons]);
+  const savedCoupons = useMemo(() => coupons.filter((c) => c.saved), [coupons]);
   const totalSavings = useMemo(
-    () => savedCoupons.reduce((s, c) => s + (c.originalPrice - c.couponPrice), 0),
+    () =>
+      savedCoupons.reduce((s, c) => s + (c.originalPrice - c.couponPrice), 0),
     [savedCoupons],
   );
 
@@ -58,7 +71,9 @@ export default function Dashboard() {
     let taken = 0;
     for (const d of last7) {
       for (const m of meds) {
-        const log = adherenceLogs.find(a => a.date === d && a.medicationId === m.id);
+        const log = adherenceLogs.find(
+          (a) => a.date === d && a.medicationId === m.id,
+        );
         if (log?.taken) taken++;
       }
     }
@@ -67,15 +82,19 @@ export default function Dashboard() {
 
   const total = latestBill?.total ?? 0;
   const topWarning = useMemo(() => {
-    if (risk.factors.length === 0) return "Your risk profile looks low — keep it up.";
+    if (risk.factors.length === 0)
+      return "Your risk profile looks low — keep it up.";
     const top = [...risk.factors].sort((a, b) => b.points - a.points)[0];
     return top.label + " — " + top.detail;
   }, [risk]);
 
   const nextAction = useMemo(() => {
-    if (risk.score >= 60) return "Book a medication review with your pharmacist this week.";
-    if (adherencePct < 80) return "Set consistent dose times to push adherence above 80%.";
-    if (billItems.some(b => b.flags.length > 0)) return "Call billing about the flagged charges before paying.";
+    if (risk.score >= 60)
+      return "Book a medication review with your pharmacist this week.";
+    if (adherencePct < 80)
+      return "Set consistent dose times to push adherence above 80%.";
+    if (billItems.some((b) => b.flags.length > 0))
+      return "Call billing about the flagged charges before paying.";
     return "Log today's doses to keep your streak alive.";
   }, [risk.score, adherencePct, billItems]);
 
@@ -86,8 +105,10 @@ export default function Dashboard() {
     for (let i = days.length - 1; i >= 0; i--) {
       const d = days[i];
       if (d === todayStr()) continue;
-      const all = meds.every(m => {
-        const log = adherenceLogs.find(l => l.date === d && l.medicationId === m.id);
+      const all = meds.every((m) => {
+        const log = adherenceLogs.find(
+          (l) => l.date === d && l.medicationId === m.id,
+        );
         return log?.taken;
       });
       if (all) s++;
@@ -97,7 +118,8 @@ export default function Dashboard() {
   }, [adherenceLogs, meds]);
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
     <>
@@ -107,8 +129,14 @@ export default function Dashboard() {
         subtitle="DoseWise wishes you a calm, healthy day. Here's a quick look at where things stand."
         actions={
           <>
-            <Link to="/risk" className="btn-secondary"><ShieldIcon className="w-4 h-4" />Run risk check</Link>
-            <Link to="/adherence" className="btn-primary"><PillIcon className="w-4 h-4" />Log a dose</Link>
+            <Link to="/risk" className="btn-secondary">
+              <ShieldIcon className="w-4 h-4" />
+              Run risk check
+            </Link>
+            <Link to="/adherence" className="btn-primary">
+              <PillIcon className="w-4 h-4" />
+              Log a dose
+            </Link>
           </>
         }
       />
@@ -120,7 +148,8 @@ export default function Dashboard() {
           riskLevel={risk.level}
           adherencePct={adherencePct}
           streakDays={streakDays}
-          medicationNames={meds.map(m => m.name)}
+          medicationNames={meds.map((m) => m.name)}
+          userName={meQ.data?.user?.name ?? "friend"}
         />
       </div>
 
@@ -130,7 +159,14 @@ export default function Dashboard() {
           tone="butter"
           icon={<HeartPulseIcon className="w-5 h-5 text-butter-500" />}
           label="Risk Score"
-          value={<span>{risk.score}<span className="text-sm font-medium text-charcoal-800/50 ml-1">/100</span></span>}
+          value={
+            <span>
+              {risk.score}
+              <span className="text-sm font-medium text-charcoal-800/50 ml-1">
+                /100
+              </span>
+            </span>
+          }
           hint={`${risk.level} risk · ${risk.factors.length} factors`}
         />
         <StatCard
@@ -158,7 +194,11 @@ export default function Dashboard() {
           tone="charcoal"
           icon={<AlertIcon className="w-5 h-5 text-blush-300" />}
           label="Top Warning"
-          value={<span className="text-base font-semibold text-white leading-snug">{topWarning.split(" — ")[0]}</span>}
+          value={
+            <span className="text-base font-semibold text-white leading-snug">
+              {topWarning.split(" — ")[0]}
+            </span>
+          }
           hint={topWarning.split(" — ")[1] ?? ""}
         />
       </div>
@@ -169,30 +209,43 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="section-title">Today's risk</p>
-              <h2 className="text-xl font-bold mt-1">Your medication risk picture</h2>
+              <h2 className="text-xl font-bold mt-1">
+                Your medication risk picture
+              </h2>
             </div>
-            <Link to="/risk" className="btn-ghost text-sm">Recalculate <ArrowRightIcon className="w-4 h-4" /></Link>
+            <Link to="/risk" className="btn-ghost text-sm">
+              Recalculate <ArrowRightIcon className="w-4 h-4" />
+            </Link>
           </div>
           <div className="mt-6 grid sm:grid-cols-2 items-center gap-6">
             <div className="flex justify-center">
               <RiskGauge score={risk.score} />
             </div>
             <div className="space-y-3">
-              <p className="text-sm text-ink-600">
-                Driving factors:
-              </p>
+              <p className="text-sm text-ink-600">Driving factors:</p>
               <ul className="space-y-2">
-                {risk.factors.slice(0, 3).map(f => (
-                  <li key={f.label} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-ink-50">
+                {risk.factors.slice(0, 3).map((f) => (
+                  <li
+                    key={f.label}
+                    className="flex items-start justify-between gap-3 p-3 rounded-xl bg-ink-50"
+                  >
                     <div>
-                      <p className="text-sm font-semibold text-ink-900">{f.label}</p>
-                      <p className="text-xs text-ink-600 leading-snug">{f.detail}</p>
+                      <p className="text-sm font-semibold text-ink-900">
+                        {f.label}
+                      </p>
+                      <p className="text-xs text-ink-600 leading-snug">
+                        {f.detail}
+                      </p>
                     </div>
-                    <span className="pill bg-white ring-1 ring-ink-100 text-ink-600 shrink-0">+{f.points}</span>
+                    <span className="pill bg-white ring-1 ring-ink-100 text-ink-600 shrink-0">
+                      +{f.points}
+                    </span>
                   </li>
                 ))}
                 {risk.factors.length === 0 && (
-                  <li className="text-sm text-mint-500 font-medium">No major risk factors detected.</li>
+                  <li className="text-sm text-mint-500 font-medium">
+                    No major risk factors detected.
+                  </li>
                 )}
               </ul>
             </div>
@@ -204,18 +257,26 @@ export default function Dashboard() {
           <div className="relative">
             <div className="flex items-center gap-2">
               <SparklesIcon className="w-4 h-4" />
-              <p className="text-xs uppercase tracking-wider font-semibold opacity-90">Next recommended action</p>
+              <p className="text-xs uppercase tracking-wider font-semibold opacity-90">
+                Next recommended action
+              </p>
             </div>
             <p className="mt-3 text-xl font-bold leading-snug">{nextAction}</p>
 
             <div className="mt-6 grid grid-cols-2 gap-3">
-              <Link to="/adherence" className="rounded-xl bg-white/15 hover:bg-white/25 transition p-3">
+              <Link
+                to="/adherence"
+                className="rounded-xl bg-white/15 hover:bg-white/25 transition p-3"
+              >
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <FlameIcon className="w-4 h-4" /> Streak
                 </div>
                 <p className="text-xs opacity-90 mt-1">View weekly chart</p>
               </Link>
-              <Link to="/bills" className="rounded-xl bg-white/15 hover:bg-white/25 transition p-3">
+              <Link
+                to="/bills"
+                className="rounded-xl bg-white/15 hover:bg-white/25 transition p-3"
+              >
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <ReceiptIcon className="w-4 h-4" /> Bills
                 </div>
@@ -234,26 +295,38 @@ export default function Dashboard() {
               <p className="section-title">Today's plan</p>
               <h2 className="text-xl font-bold mt-1">Medications scheduled</h2>
             </div>
-            <Link to="/medguide" className="btn-ghost text-sm">Open MedGuide <ArrowRightIcon className="w-4 h-4" /></Link>
+            <Link to="/medguide" className="btn-ghost text-sm">
+              Open MedGuide <ArrowRightIcon className="w-4 h-4" />
+            </Link>
           </div>
           <ul className="divide-y divide-ink-100">
-            {meds.map(m => (
-              <li key={m.id} className="py-3 flex items-center justify-between gap-3">
+            {meds.map((m) => (
+              <li
+                key={m.id}
+                className="py-3 flex items-center justify-between gap-3"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center">
                     <PillIcon className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="font-semibold text-ink-900">{m.name} <span className="text-ink-400 font-normal">· {m.dosage}</span></p>
+                    <p className="font-semibold text-ink-900">
+                      {m.name}{" "}
+                      <span className="text-ink-400 font-normal">
+                        · {m.dosage}
+                      </span>
+                    </p>
                     <p className="text-xs text-ink-600 flex items-center gap-1.5">
                       <ClockIcon className="w-3.5 h-3.5" />
-                      {m.schedule.map(s => s.time).join(" · ")}
+                      {m.schedule.map((s) => s.time).join(" · ")}
                       <span className="text-ink-400">·</span>
                       {m.frequency}
                     </p>
                   </div>
                 </div>
-                <span className="pill bg-mint-50 text-mint-500 ring-1 ring-mint-200">{m.category.split(" ")[0]}</span>
+                <span className="pill bg-mint-50 text-mint-500 ring-1 ring-mint-200">
+                  {m.category.split(" ")[0]}
+                </span>
               </li>
             ))}
           </ul>
@@ -263,10 +336,15 @@ export default function Dashboard() {
           <p className="section-title">Bill snapshot</p>
           <h2 className="text-xl font-bold mt-1">Recent itemized charges</h2>
           <ul className="mt-4 space-y-2">
-            {billItems.slice(0, 4).map(b => (
-              <li key={b.id} className="flex items-center justify-between gap-2 text-sm">
+            {billItems.slice(0, 4).map((b) => (
+              <li
+                key={b.id}
+                className="flex items-center justify-between gap-2 text-sm"
+              >
                 <span className="truncate text-ink-800">{b.description}</span>
-                <span className={`font-semibold ${b.flags.length ? "text-coral-600" : "text-ink-900"}`}>
+                <span
+                  className={`font-semibold ${b.flags.length ? "text-coral-600" : "text-ink-900"}`}
+                >
                   ${b.amount.toFixed(0)}
                 </span>
               </li>
@@ -276,7 +354,12 @@ export default function Dashboard() {
             <span className="text-sm text-ink-600">Estimated total</span>
             <span className="text-lg font-extrabold">${total.toFixed(0)}</span>
           </div>
-          <Link to="/bills" className="btn-secondary w-full mt-4 justify-center">Open bill breakdown</Link>
+          <Link
+            to="/bills"
+            className="btn-secondary w-full mt-4 justify-center"
+          >
+            Open bill breakdown
+          </Link>
         </div>
       </div>
 
@@ -300,24 +383,41 @@ export default function Dashboard() {
         {savedCoupons.length === 0 ? (
           <div className="text-center py-6 text-ink-400">
             <TagIcon className="w-7 h-7 mx-auto" />
-            <p className="text-sm mt-2">No active coupons yet — add one in Savings.</p>
+            <p className="text-sm mt-2">
+              No active coupons yet — add one in Savings.
+            </p>
           </div>
         ) : (
           <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {savedCoupons.slice(0, 3).map(c => {
+            {savedCoupons.slice(0, 3).map((c) => {
               const savings = c.originalPrice - c.couponPrice;
-              const off = c.originalPrice > 0
-                ? Math.round(((c.originalPrice - c.couponPrice) / c.originalPrice) * 100)
-                : 0;
+              const off =
+                c.originalPrice > 0
+                  ? Math.round(
+                      ((c.originalPrice - c.couponPrice) / c.originalPrice) *
+                        100,
+                    )
+                  : 0;
               return (
-                <li key={c.id} className="rounded-2xl border border-ink-100 bg-white p-4 flex items-center gap-3">
+                <li
+                  key={c.id}
+                  className="rounded-2xl border border-ink-100 bg-white p-4 flex items-center gap-3"
+                >
                   <div className="w-12 h-12 rounded-xl bg-brand-gradient text-white flex flex-col items-center justify-center shrink-0">
-                    <span className="text-base font-extrabold leading-none">{off}%</span>
-                    <span className="text-[9px] uppercase tracking-wider opacity-90">Off</span>
+                    <span className="text-base font-extrabold leading-none">
+                      {off}%
+                    </span>
+                    <span className="text-[9px] uppercase tracking-wider opacity-90">
+                      Off
+                    </span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-ink-900 truncate">{c.medication}</p>
-                    <p className="text-xs text-ink-600 truncate">{c.pharmacy} · {c.source}</p>
+                    <p className="font-semibold text-ink-900 truncate">
+                      {c.medication}
+                    </p>
+                    <p className="text-xs text-ink-600 truncate">
+                      {c.pharmacy} · {c.source}
+                    </p>
                     <p className="text-sm font-bold text-brand-700 mt-0.5 tabular-nums">
                       Save ${savings.toFixed(2)}
                     </p>
@@ -331,4 +431,3 @@ export default function Dashboard() {
     </>
   );
 }
-

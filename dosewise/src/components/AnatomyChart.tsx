@@ -8,13 +8,13 @@ interface AnatomyChartProps {
   onSelect: (id: BodySystem) => void;
 }
 
-export type AnatomySystem = "muscular" | "cardiovascular" | "respiratory" | "digestive" | "nervous" | "integumentary";
+export type AnatomySystem = "muscular" | "cardiovascular" | "respiratory" | "digestive" | "nervous" | "integumentary" | "hepatic";
 
 const REGION_TO_SYSTEM: Record<BodySystem, AnatomySystem> = {
   head: "nervous",
   heart: "cardiovascular",
   lungs: "respiratory",
-  liver: "digestive",
+  liver: "hepatic",
   stomach: "digestive",
   skin: "integumentary",
 };

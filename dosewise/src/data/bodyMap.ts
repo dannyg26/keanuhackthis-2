@@ -1,4 +1,10 @@
-export type BodySystem = "head" | "heart" | "lungs" | "liver" | "stomach" | "skin";
+export type BodySystem =
+  | "head"
+  | "heart"
+  | "lungs"
+  | "liver"
+  | "stomach"
+  | "skin";
 
 /**
  * Hotspot positions as fractions of the model's bounding box, in [-0.5, 0.5]:
@@ -9,13 +15,16 @@ export type BodySystem = "head" | "heart" | "lungs" | "liver" | "stomach" | "ski
  * These work for any humanoid GLB once it's centered at origin and normalized
  * to a known size. Tweak per-model if proportions differ.
  */
-export const HOTSPOT_FRACTIONS: Record<BodySystem, { x: number; y: number; z: number }> = {
-  head:    { x:  0.00, y:  0.42, z:  0.10 },
-  heart:   { x: -0.05, y:  0.18, z:  0.18 },
-  lungs:   { x:  0.08, y:  0.22, z:  0.18 },
-  liver:   { x:  0.10, y:  0.05, z:  0.18 },
-  stomach: { x: -0.02, y: -0.02, z:  0.20 },
-  skin:    { x: -0.30, y: -0.05, z:  0.10 },
+export const HOTSPOT_FRACTIONS: Record<
+  BodySystem,
+  { x: number; y: number; z: number }
+> = {
+  head: { x: 0.0, y: 0.42, z: 0.1 }, // top of head — unchanged
+  heart: { x: -0.07, y: 0.26, z: 0.18 }, // left chest, nipple line
+  lungs: { x: 0.09, y: 0.3, z: 0.18 }, // right upper chest
+  liver: { x: 0.13, y: 0.17, z: 0.18 }, // right upper abdomen
+  stomach: { x: -0.05, y: 0.12, z: 0.2 }, // left upper abdomen, below ribs
+  skin: { x: -0.38, y: 0.2, z: 0.05 }, // upper-left arm (not thigh)
 };
 
 export interface BodyRegion {
@@ -49,17 +58,33 @@ export const BODY_REGIONS: BodyRegion[] = [
     description: "Mental health, sleep, neurological symptoms, and migraines.",
     conditions: ["Migraines", "Anxiety", "Depression", "Insomnia"],
     labs: ["Sleep study", "Thyroid panel", "Vitamin D"],
-    symptoms: ["Headache", "Migraine", "Dizziness", "Brain fog", "Trouble sleeping", "Low mood", "Anxious feelings"],
+    symptoms: [
+      "Headache",
+      "Migraine",
+      "Dizziness",
+      "Brain fog",
+      "Trouble sleeping",
+      "Low mood",
+      "Anxious feelings",
+    ],
   },
   {
     id: "heart",
     name: "Heart & Vessels",
     position: [-0.18, 1.32, 0.55],
     color: "#ec4899",
-    description: "Cardiovascular system — blood pressure, cholesterol, and circulation.",
+    description:
+      "Cardiovascular system — blood pressure, cholesterol, and circulation.",
     conditions: ["High blood pressure", "High cholesterol", "Arrhythmia"],
     labs: ["Lipid panel", "Blood pressure log", "ECG", "BNP"],
-    symptoms: ["Chest pain", "Palpitations", "Shortness of breath", "Fatigue", "Swelling in ankles", "Lightheaded standing up"],
+    symptoms: [
+      "Chest pain",
+      "Palpitations",
+      "Shortness of breath",
+      "Fatigue",
+      "Swelling in ankles",
+      "Lightheaded standing up",
+    ],
   },
   {
     id: "lungs",
@@ -69,7 +94,13 @@ export const BODY_REGIONS: BodyRegion[] = [
     description: "Respiratory system — breathing, allergies, lung capacity.",
     conditions: ["Asthma", "Allergic rhinitis", "COPD"],
     labs: ["Pulmonary function test", "Chest X-ray", "Peak flow"],
-    symptoms: ["Cough", "Wheezing", "Shortness of breath", "Tight chest", "Seasonal allergies"],
+    symptoms: [
+      "Cough",
+      "Wheezing",
+      "Shortness of breath",
+      "Tight chest",
+      "Seasonal allergies",
+    ],
   },
   {
     id: "liver",
@@ -79,7 +110,13 @@ export const BODY_REGIONS: BodyRegion[] = [
     description: "Drug processing, blood sugar control, liver health.",
     conditions: ["Liver function", "Type 2 diabetes", "Statin monitoring"],
     labs: ["ALT / AST", "HbA1c", "Glucose", "Liver panel"],
-    symptoms: ["Nausea", "Unusual fatigue", "Yellow skin or eyes", "Dark urine", "Right-side abdominal pain"],
+    symptoms: [
+      "Nausea",
+      "Unusual fatigue",
+      "Yellow skin or eyes",
+      "Dark urine",
+      "Right-side abdominal pain",
+    ],
   },
   {
     id: "stomach",
@@ -89,7 +126,14 @@ export const BODY_REGIONS: BodyRegion[] = [
     description: "Digestive symptoms — heartburn, nausea, gut health.",
     conditions: ["GERD", "IBS", "Ulcers"],
     labs: ["H. pylori", "Stool test", "Endoscopy"],
-    symptoms: ["Heartburn", "Nausea", "Bloating", "Abdominal pain", "Diarrhea", "Constipation"],
+    symptoms: [
+      "Heartburn",
+      "Nausea",
+      "Bloating",
+      "Abdominal pain",
+      "Diarrhea",
+      "Constipation",
+    ],
   },
   {
     id: "skin",
@@ -105,19 +149,19 @@ export const BODY_REGIONS: BodyRegion[] = [
 
 /** Map medication name (lowercased prefix matching) → body systems it affects. */
 export const MED_TO_SYSTEMS: Record<string, BodySystem[]> = {
-  lisinopril:      ["heart"],
-  metformin:       ["liver", "stomach"],
-  atorvastatin:    ["heart", "liver"],
-  sertraline:      ["head", "stomach"],
-  warfarin:        ["heart"],
-  ibuprofen:       ["stomach", "liver"],
+  lisinopril: ["heart"],
+  metformin: ["liver", "stomach"],
+  atorvastatin: ["heart", "liver"],
+  sertraline: ["head", "stomach"],
+  warfarin: ["heart"],
+  ibuprofen: ["stomach", "liver"],
   diphenhydramine: ["skin", "head"],
-  levothyroxine:   ["head", "heart"],
-  amlodipine:      ["heart"],
-  omeprazole:      ["stomach"],
-  prednisone:      ["skin", "lungs"],
-  albuterol:       ["lungs"],
-  loratadine:      ["skin", "lungs"],
+  levothyroxine: ["head", "heart"],
+  amlodipine: ["heart"],
+  omeprazole: ["stomach"],
+  prednisone: ["skin", "lungs"],
+  albuterol: ["lungs"],
+  loratadine: ["skin", "lungs"],
 };
 
 export function systemsForMed(name: string): BodySystem[] {
@@ -140,40 +184,145 @@ interface AlertRule {
 
 const ALERT_RULES: AlertRule[] = [
   // Statins
-  { medPrefix: "atorvastatin", region: "liver",   level: "warning", title: "Liver enzymes worth checking", detail: "Statins can elevate ALT/AST. Ask for a liver panel at your annual visit." },
-  { medPrefix: "atorvastatin", region: "heart",   level: "info",    title: "Lipid panel reminder", detail: "Recheck cholesterol 6–12 weeks after starting or changing a statin." },
+  {
+    medPrefix: "atorvastatin",
+    region: "liver",
+    level: "warning",
+    title: "Liver enzymes worth checking",
+    detail:
+      "Statins can elevate ALT/AST. Ask for a liver panel at your annual visit.",
+  },
+  {
+    medPrefix: "atorvastatin",
+    region: "heart",
+    level: "info",
+    title: "Lipid panel reminder",
+    detail:
+      "Recheck cholesterol 6–12 weeks after starting or changing a statin.",
+  },
 
   // ACE inhibitor
-  { medPrefix: "lisinopril",   region: "heart",   level: "info",    title: "Track blood pressure weekly", detail: "Most useful in the first 4 weeks after a dose change." },
-  { medPrefix: "lisinopril",   region: "lungs",   level: "info",    title: "Watch for dry cough", detail: "ACE inhibitors can cause a persistent dry cough — flag it to your doctor if it lingers." },
+  {
+    medPrefix: "lisinopril",
+    region: "heart",
+    level: "info",
+    title: "Track blood pressure weekly",
+    detail: "Most useful in the first 4 weeks after a dose change.",
+  },
+  {
+    medPrefix: "lisinopril",
+    region: "lungs",
+    level: "info",
+    title: "Watch for dry cough",
+    detail:
+      "ACE inhibitors can cause a persistent dry cough — flag it to your doctor if it lingers.",
+  },
 
   // Metformin
-  { medPrefix: "metformin",    region: "liver",   level: "warning", title: "Lactic acidosis (rare)", detail: "Stop and call a clinician if you have unusual muscle pain, trouble breathing, or extreme fatigue." },
-  { medPrefix: "metformin",    region: "stomach", level: "info",    title: "Take with food", detail: "Reduces nausea and diarrhea, especially in the first weeks." },
+  {
+    medPrefix: "metformin",
+    region: "liver",
+    level: "warning",
+    title: "Lactic acidosis (rare)",
+    detail:
+      "Stop and call a clinician if you have unusual muscle pain, trouble breathing, or extreme fatigue.",
+  },
+  {
+    medPrefix: "metformin",
+    region: "stomach",
+    level: "info",
+    title: "Take with food",
+    detail: "Reduces nausea and diarrhea, especially in the first weeks.",
+  },
 
   // SSRI
-  { medPrefix: "sertraline",   region: "head",    level: "info",    title: "Allow 4–6 weeks for full effect", detail: "Mood improvements are gradual. Don't stop abruptly without a taper plan." },
-  { medPrefix: "sertraline",   region: "stomach", level: "info",    title: "Mild GI upset is common early", detail: "Usually settles in 1–2 weeks. Take with food if needed." },
+  {
+    medPrefix: "sertraline",
+    region: "head",
+    level: "info",
+    title: "Allow 4–6 weeks for full effect",
+    detail:
+      "Mood improvements are gradual. Don't stop abruptly without a taper plan.",
+  },
+  {
+    medPrefix: "sertraline",
+    region: "stomach",
+    level: "info",
+    title: "Mild GI upset is common early",
+    detail: "Usually settles in 1–2 weeks. Take with food if needed.",
+  },
 
   // Anticoagulant
-  { medPrefix: "warfarin",     region: "heart",   level: "danger",  title: "Bleeding risk — interactions matter", detail: "NSAIDs, alcohol, and vitamin K shifts all change INR. Get regular INR checks." },
+  {
+    medPrefix: "warfarin",
+    region: "heart",
+    level: "danger",
+    title: "Bleeding risk — interactions matter",
+    detail:
+      "NSAIDs, alcohol, and vitamin K shifts all change INR. Get regular INR checks.",
+  },
 
   // NSAID
-  { medPrefix: "ibuprofen",    region: "stomach", level: "warning", title: "GI bleeding risk", detail: "Watch for black stools or dark vomit. Limit daily use; pair with food." },
-  { medPrefix: "ibuprofen",    region: "liver",   level: "info",    title: "Avoid with chronic alcohol use", detail: "Combo can stress the liver — flag it at your next visit." },
+  {
+    medPrefix: "ibuprofen",
+    region: "stomach",
+    level: "warning",
+    title: "GI bleeding risk",
+    detail:
+      "Watch for black stools or dark vomit. Limit daily use; pair with food.",
+  },
+  {
+    medPrefix: "ibuprofen",
+    region: "liver",
+    level: "info",
+    title: "Avoid with chronic alcohol use",
+    detail: "Combo can stress the liver — flag it at your next visit.",
+  },
 
   // Antihistamine (sedating)
-  { medPrefix: "diphenhydramine", region: "head", level: "warning", title: "Drowsiness + cognitive fog", detail: "Avoid combining with alcohol or driving until you know how it affects you." },
+  {
+    medPrefix: "diphenhydramine",
+    region: "head",
+    level: "warning",
+    title: "Drowsiness + cognitive fog",
+    detail:
+      "Avoid combining with alcohol or driving until you know how it affects you.",
+  },
 
   // Steroid
-  { medPrefix: "prednisone",   region: "skin",    level: "warning", title: "Photosensitivity & thinning", detail: "Use SPF; report unusual bruising or wound healing changes." },
-  { medPrefix: "prednisone",   region: "lungs",   level: "info",    title: "Don't stop abruptly", detail: "Taper as prescribed — sudden discontinuation can trigger adrenal issues." },
+  {
+    medPrefix: "prednisone",
+    region: "skin",
+    level: "warning",
+    title: "Photosensitivity & thinning",
+    detail: "Use SPF; report unusual bruising or wound healing changes.",
+  },
+  {
+    medPrefix: "prednisone",
+    region: "lungs",
+    level: "info",
+    title: "Don't stop abruptly",
+    detail:
+      "Taper as prescribed — sudden discontinuation can trigger adrenal issues.",
+  },
 
   // Bronchodilator
-  { medPrefix: "albuterol",    region: "lungs",   level: "info",    title: "Rescue use, not control", detail: "If you need this >2× per week, ask about a long-term controller." },
+  {
+    medPrefix: "albuterol",
+    region: "lungs",
+    level: "info",
+    title: "Rescue use, not control",
+    detail: "If you need this >2× per week, ask about a long-term controller.",
+  },
 
   // PPI
-  { medPrefix: "omeprazole",   region: "stomach", level: "info",    title: "Long-term use review", detail: "Discuss tapering after 8 weeks if symptoms have resolved." },
+  {
+    medPrefix: "omeprazole",
+    region: "stomach",
+    level: "info",
+    title: "Long-term use review",
+    detail: "Discuss tapering after 8 weeks if symptoms have resolved.",
+  },
 ];
 
 /** Returns alerts for a given region based on the user's current medication list. */
@@ -181,17 +330,18 @@ export function alertsForRegion(
   region: BodySystem,
   medications: string[],
 ): RegionAlert[] {
-  const lower = medications.map(m => m.trim().toLowerCase());
+  const lower = medications.map((m) => m.trim().toLowerCase());
   const out: RegionAlert[] = [];
   for (const rule of ALERT_RULES) {
     if (rule.region !== region) continue;
-    const match = lower.find(m => m.startsWith(rule.medPrefix));
+    const match = lower.find((m) => m.startsWith(rule.medPrefix));
     if (match) {
       out.push({
         level: rule.level,
         title: rule.title,
         detail: rule.detail,
-        triggeredBy: match.charAt(0).toUpperCase() + match.slice(1).split(/\s/)[0],
+        triggeredBy:
+          match.charAt(0).toUpperCase() + match.slice(1).split(/\s/)[0],
       });
     }
   }
