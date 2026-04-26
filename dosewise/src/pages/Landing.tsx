@@ -330,6 +330,22 @@ export default function Landing() {
             </ol>
           </div>
         </div>
+
+        {/* Final CTA — invite the user into the app */}
+        <div className="px-4 sm:px-6 lg:px-10 pb-20 pt-8 text-center">
+          <p className="text-[11px] sm:text-xs uppercase tracking-[0.28em] font-semibold text-charcoal-900/70">
+            Ready when you are
+          </p>
+          <h2 className="mt-3 font-display font-extrabold text-charcoal-900 tracking-tight leading-[1.05] text-2xl sm:text-4xl">
+            Step inside Clarity.
+          </h2>
+          <Link
+            to="/dashboard"
+            className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-charcoal-900 text-white font-semibold shadow-soft hover:bg-charcoal-800 hover:scale-105 transition-transform text-base"
+          >
+            Try it now <ArrowRightIcon className="w-4 h-4" />
+          </Link>
+        </div>
       </main>
     </div>
   );

@@ -11,6 +11,8 @@ interface CouponTicketProps {
   onToggleSaved: () => void;
   onCopy: () => void;
   onRemove?: () => void;
+  /** When set, the action button becomes a "Visit" link opening this URL in a new tab. */
+  externalUrl?: string;
 }
 
 const PALETTE: Record<CouponSource, { bg: string; accent: string; text: string }> = {
@@ -59,7 +61,7 @@ function Barcode({ code, color }: { code: string; color: string }) {
 }
 
 export default function CouponTicket({
-  coupon, saved, copied, busy, onToggleSaved, onCopy, onRemove,
+  coupon, saved, copied, busy, onToggleSaved, onCopy, onRemove, externalUrl,
 }: CouponTicketProps) {
   const off = pctOff(coupon.originalPrice, coupon.couponPrice);
   const days = daysUntil(coupon.expiresOn);
@@ -165,18 +167,30 @@ export default function CouponTicket({
               >
                 {copied
                   ? <><CheckIcon className="w-4 h-4" /> Copied</>
-                  : <><CopyIcon className="w-4 h-4" /> View code</>}
+                  : <><CopyIcon className="w-4 h-4" /> Copy code</>}
               </button>
-              <button
-                onClick={onToggleSaved}
-                disabled={busy}
-                className="flex-1 rounded-xl py-2 px-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition disabled:opacity-50 text-white shadow-sm"
-                style={{ background: palette.accent }}
-              >
-                {saved
-                  ? <><CheckIcon className="w-4 h-4" /> Redeemed</>
-                  : <><PlusIcon className="w-4 h-4" /> Redeem</>}
-              </button>
+              {externalUrl ? (
+                <a
+                  href={externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 rounded-xl py-2 px-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition text-white shadow-sm"
+                  style={{ background: palette.accent }}
+                >
+                  Visit program →
+                </a>
+              ) : (
+                <button
+                  onClick={onToggleSaved}
+                  disabled={busy}
+                  className="flex-1 rounded-xl py-2 px-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition disabled:opacity-50 text-white shadow-sm"
+                  style={{ background: palette.accent }}
+                >
+                  {saved
+                    ? <><CheckIcon className="w-4 h-4" /> Redeemed</>
+                    : <><PlusIcon className="w-4 h-4" /> Redeem</>}
+                </button>
+              )}
               {onRemove && coupon.source === "Custom" && (
                 <button
                   onClick={onRemove}

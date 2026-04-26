@@ -1,13 +1,40 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
 import {
-  TagIcon, StoreIcon, DollarIcon, PlusIcon, SparklesIcon, ClockIcon,
+  TagIcon, DollarIcon, PlusIcon, SparklesIcon, ClockIcon,
 } from "../components/Icon";
-import { SAMPLE_PHARMACY_PRICES } from "../data/sampleCoupons";
-import { api, type Coupon } from "../lib/api";
+import { api, type Coupon, type Medication } from "../lib/api";
 import { useApi } from "../lib/useApi";
 import CouponTicket from "../components/CouponTicket";
+import { offersForMed, REAL_OFFERS, type RealOffer } from "../data/realOffers";
+
+/** Recover the source URL for a real-offer-derived coupon by parsing its id. */
+function lookupRealOfferUrl(couponId: string): string | undefined {
+  // Coupon id shape: "real-{offerId}-{medId}". Find the offer whose id is a prefix.
+  if (!couponId.startsWith("real-")) return undefined;
+  const rest = couponId.slice("real-".length);
+  const offer = REAL_OFFERS.find(o => rest.startsWith(o.id + "-"));
+  return offer?.url;
+}
+
+// Map a real public program + a user med to a Coupon-shaped object so we can
+// render it in the existing CouponTicket layout.
+function realOfferToCoupon(offer: RealOffer, med: Medication): Coupon {
+  return {
+    id: `real-${offer.id}-${med.id}`,
+    medication: med.name + (med.dosage ? ` ${med.dosage}` : ""),
+    pharmacy: offer.pharmacy,
+    originalPrice: offer.estimatedRetail,
+    couponPrice: offer.estimatedPrice,
+    expiresOn: offer.expiresOn,
+    code: offer.code,
+    source: offer.source,
+    note: offer.note,
+    saved: false,
+    createdAt: "",
+  };
+}
 
 function daysUntil(date: string): number {
   const target = new Date(date + "T12:00:00").getTime();
@@ -15,13 +42,55 @@ function daysUntil(date: string): number {
   return Math.round((target - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+
 export default function Savings() {
   const { data, loading, error: loadError, refetch, setData } =
     useApi(() => api.coupons.list());
-  const coupons: Coupon[] = data?.coupons ?? [];
-  const savedIds = useMemo(() => coupons.filter(c => c.saved).map(c => c.id), [coupons]);
+  // Only show user-added coupons from the API — the seeded fake ones are filtered out.
+  const userAddedCoupons: Coupon[] = (data?.coupons ?? []).filter(c => c.source === "Custom");
 
-  const [comparePick, setComparePick] = useState<string>("Lisinopril 10mg");
+  // Pull in the user's actual medications so we can match real public discount programs to them.
+  const { data: medsData } = useApi(() => api.medications.list());
+  const userMeds: Medication[] = medsData?.medications ?? [];
+
+  // Build the real-offer ticket list from the user's meds × matching public programs.
+  const realOfferCoupons: Coupon[] = useMemo(() => {
+    const out: Coupon[] = [];
+    for (const med of userMeds) {
+      for (const offer of offersForMed(med.name)) {
+        out.push(realOfferToCoupon(offer, med));
+      }
+    }
+    return out;
+  }, [userMeds]);
+
+  // Combined list shown to the user: their own saved coupons + matched real offers.
+  const allCoupons: Coupon[] = useMemo(
+    () => [...userAddedCoupons, ...realOfferCoupons],
+    [userAddedCoupons, realOfferCoupons],
+  );
+
+  // Filter state
+  const [filter, setFilter] = useState<string>("all");          // chip filter — by pharmacy/source keyword
+  const [medFilter, setMedFilter] = useState<string>("all");    // dropdown — by medication
+
+  const visibleCoupons = useMemo(() => {
+    let out = allCoupons;
+    if (filter === "yours") out = userAddedCoupons;
+    else if (filter !== "all") out = out.filter(c => c.pharmacy === filter || c.source === filter);
+    if (medFilter !== "all") out = out.filter(c => c.medication === medFilter);
+    return out;
+  }, [allCoupons, userAddedCoupons, filter, medFilter]);
+
+  // Source/pharmacy chips drawn from what's actually on the page.
+  const filterOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of allCoupons) set.add(c.pharmacy);
+    return Array.from(set);
+  }, [allCoupons]);
+
+  const savedIds = useMemo(() => userAddedCoupons.filter(c => c.saved).map(c => c.id), [userAddedCoupons]);
+
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -33,22 +102,17 @@ export default function Savings() {
   const [adding, setAdding] = useState(false);
 
   const totalSavings = useMemo(
-    () => coupons.filter(c => c.saved).reduce((sum, c) => sum + (c.originalPrice - c.couponPrice), 0),
-    [coupons],
+    () => userAddedCoupons.filter(c => c.saved).reduce((sum, c) => sum + (c.originalPrice - c.couponPrice), 0),
+    [userAddedCoupons],
   );
 
   const expiringSoon = useMemo(
-    () => coupons.filter(c => c.saved && daysUntil(c.expiresOn) <= 30),
-    [coupons],
+    () => userAddedCoupons.filter(c => c.saved && daysUntil(c.expiresOn) <= 30),
+    [userAddedCoupons],
   );
 
-  const compareList = SAMPLE_PHARMACY_PRICES[comparePick] ?? [];
-  const cheapest = compareList.length > 0
-    ? [...compareList].sort((a, b) => a.withCouponPrice - b.withCouponPrice)[0]
-    : null;
-
   const toggleSaved = async (id: string) => {
-    const target = coupons.find(c => c.id === id);
+    const target = userAddedCoupons.find(c => c.id === id);
     if (!target) return;
     setBusyId(id);
     setActionError(null);
@@ -117,10 +181,20 @@ export default function Savings() {
     }
   };
 
-  const medOptions = useMemo(
-    () => Array.from(new Set([...Object.keys(SAMPLE_PHARMACY_PRICES), ...coupons.map(c => c.medication)])),
-    [coupons],
-  );
+  // Dropdown options for the "filter by medication" dropdown — every med that
+  // appears in the visible offers list (taken from the user's meds + any custom coupons).
+  const medOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of allCoupons) set.add(c.medication);
+    return Array.from(set).sort();
+  }, [allCoupons]);
+
+  // Reset the med dropdown if the picked med is no longer in the list.
+  useEffect(() => {
+    if (medFilter !== "all" && !medOptions.includes(medFilter)) {
+      setMedFilter("all");
+    }
+  }, [medOptions, medFilter]);
 
   if (loading) {
     return (
@@ -159,9 +233,9 @@ export default function Savings() {
         <StatCard
           tone="butter"
           icon={<TagIcon className="w-5 h-5 text-butter-500" />}
-          label="Available Coupons"
-          value={`${coupons.length}`}
-          hint="Across your medications"
+          label="Available Offers"
+          value={`${allCoupons.length}`}
+          hint={`${realOfferCoupons.length} real programs match your meds`}
         />
         <StatCard
           tone="blush"
@@ -176,26 +250,70 @@ export default function Savings() {
         {/* Coupons list */}
         <section className="lg:col-span-3 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="section-title">Your coupons</p>
-            <span className="pill bg-ink-100 text-ink-600">{coupons.length} total</span>
+            <p className="section-title">Real offers for your meds</p>
+            <span className="pill bg-ink-100 text-ink-600">{visibleCoupons.length} shown</span>
           </div>
-          <ul className="space-y-4">
-            {coupons.map(c => (
-              <CouponTicket
-                key={c.id}
-                coupon={c}
-                saved={c.saved}
-                copied={copiedId === c.id}
-                busy={busyId === c.id}
-                onToggleSaved={() => toggleSaved(c.id)}
-                onCopy={() => copy(c.code, c.id)}
-                onRemove={c.source === "Custom" ? () => removeCoupon(c.id) : undefined}
-              />
+
+          {/* Medication dropdown filter */}
+          {medOptions.length > 0 && (
+            <div>
+              <label className="text-[10px] uppercase tracking-wider font-bold text-ink-500 block mb-1">
+                Filter by medication
+              </label>
+              <select
+                value={medFilter}
+                onChange={e => setMedFilter(e.target.value)}
+                className="input w-full text-sm"
+              >
+                <option value="all">All medications</option>
+                {medOptions.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Keyword filter chips */}
+          <div className="flex flex-wrap gap-2">
+            <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>
+              All
+            </FilterChip>
+            {userAddedCoupons.length > 0 && (
+              <FilterChip active={filter === "yours"} onClick={() => setFilter("yours")}>
+                Your coupons
+              </FilterChip>
+            )}
+            {filterOptions.map(opt => (
+              <FilterChip key={opt} active={filter === opt} onClick={() => setFilter(opt)}>
+                {opt}
+              </FilterChip>
             ))}
-            {coupons.length === 0 && (
+          </div>
+
+          <ul className="space-y-4">
+            {visibleCoupons.map(c => {
+              const isReal = c.id.startsWith("real-");
+              const url = isReal ? lookupRealOfferUrl(c.id) : undefined;
+              return (
+                <CouponTicket
+                  key={c.id}
+                  coupon={c}
+                  saved={isReal ? false : c.saved}
+                  copied={copiedId === c.id}
+                  busy={busyId === c.id}
+                  onToggleSaved={() => !isReal && toggleSaved(c.id)}
+                  onCopy={() => copy(c.code, c.id)}
+                  onRemove={!isReal && c.source === "Custom" ? () => removeCoupon(c.id) : undefined}
+                  externalUrl={url}
+                />
+              );
+            })}
+            {visibleCoupons.length === 0 && (
               <li className="card text-center text-ink-400 py-12">
                 <TagIcon className="w-8 h-8 mx-auto" />
-                <p className="mt-2 text-sm">No coupons yet — add one on the right.</p>
+                <p className="mt-2 text-sm">
+                  {userMeds.length === 0
+                    ? "Add a medication first to see matching real discount programs."
+                    : "No offers match this filter."}
+                </p>
               </li>
             )}
           </ul>
@@ -266,62 +384,32 @@ export default function Savings() {
             )}
           </form>
 
-          {/* Pharmacy comparison */}
-          <div className="card bg-butter-50 border-butter-200">
-            <div className="flex items-center gap-2 mb-2">
-              <StoreIcon className="w-4 h-4 text-brand-700" />
-              <p className="section-title">Compare pharmacies</p>
-            </div>
-            <select
-              value={comparePick}
-              onChange={e => setComparePick(e.target.value)}
-              className="input"
-            >
-              {medOptions.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-
-            {compareList.length === 0 ? (
-              <p className="mt-3 text-sm text-ink-400">No price data yet for this medication.</p>
-            ) : (
-              <ul className="mt-3 space-y-2">
-                {compareList.map(p => {
-                  const isCheapest = cheapest && p.pharmacy === cheapest.pharmacy;
-                  return (
-                    <li
-                      key={p.pharmacy}
-                      className={`p-3 rounded-xl border ${
-                        isCheapest ? "border-brand-400 bg-brand-50" : "border-ink-100 bg-white"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-ink-900 truncate">{p.pharmacy}</p>
-                          <p className="text-xs text-ink-600">{p.distanceMiles.toFixed(1)} mi away</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-ink-400 line-through tabular-nums">${p.cashPrice.toFixed(2)}</p>
-                          <p className="text-base font-extrabold text-brand-700 tabular-nums leading-none">
-                            ${p.withCouponPrice.toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                      {isCheapest && (
-                        <span className="inline-flex items-center gap-1 mt-2 pill bg-brand-gradient text-white">
-                          <SparklesIcon className="w-3 h-3" /> Cheapest with coupon
-                        </span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-
-            <p className="text-[11px] text-ink-400 mt-3 leading-relaxed">
-              Demo prices for illustration. Real prices vary by plan, location, and stock.
-            </p>
-          </div>
         </aside>
       </div>
     </>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`pill ring-1 transition text-xs ${
+        active
+          ? "bg-charcoal-900 text-white ring-charcoal-900"
+          : "bg-white text-ink-600 ring-ink-200 hover:ring-ink-400"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

@@ -213,7 +213,7 @@ export default function RiskEngine() {
                     key={opt}
                     type="button"
                     onClick={() => update("alcoholUse", opt)}
-                    className={`px-3 py-2 rounded-xl text-sm font-medium border transition capitalize
+                    className={`px-2 py-2 rounded-xl text-xs sm:text-sm font-medium border transition capitalize whitespace-nowrap
                       ${
                         input.alcoholUse === opt
                           ? "bg-brand-50 border-brand-400 text-brand-700"

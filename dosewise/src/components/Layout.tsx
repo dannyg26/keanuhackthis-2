@@ -1,6 +1,6 @@
 import { NavLink, Outlet, Link, useNavigate } from "react-router-dom";
 import Logo from "./Logo";
-import { HomeIcon, ShieldIcon, PillIcon, ReceiptIcon, BookIcon, SparklesIcon, TagIcon, BodyIcon, XIcon } from "./Icon";
+import { HomeIcon, ShieldIcon, PillIcon, ReceiptIcon, BookIcon, TagIcon, BodyIcon, XIcon } from "./Icon";
 import { useAuth } from "../contexts/AuthContext";
 
 const navItems = [
@@ -90,10 +90,6 @@ export default function Layout() {
           >
             <XIcon className="w-3.5 h-3.5" /> Log out
           </button>
-        </div>
-        <div className="mx-3 mb-3 px-3 py-2.5 rounded-2xl bg-blush-200 text-charcoal-900 text-[11px] leading-snug flex items-center gap-2">
-          <SparklesIcon className="w-3.5 h-3.5 text-blush-500 shrink-0" />
-          Sample data is loaded — feel free to explore.
         </div>
       </aside>
 

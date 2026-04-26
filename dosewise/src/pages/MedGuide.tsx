@@ -34,6 +34,16 @@ export default function MedGuide() {
   const [newSlotLabel, setNewSlotLabel] = useState("Morning dose");
   const [newSlotWithFood, setNewSlotWithFood] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<{
+    name: string;
+    dosage: string;
+    frequency: string;
+    purpose: string;
+    category: string;
+    refillsLeft: string; // string for input, parsed on save
+  }>({ name: "", dosage: "", frequency: "", purpose: "", category: "", refillsLeft: "" });
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Once meds load, default-select the first one
   useEffect(() => {
@@ -66,6 +76,63 @@ export default function MedGuide() {
       await refetch();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to delete medication.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startEditing = () => {
+    if (!active) return;
+    setForm({
+      name: active.name,
+      dosage: active.dosage,
+      frequency: active.frequency,
+      purpose: active.purpose,
+      category: active.category,
+      refillsLeft: active.refillsLeft == null ? "" : String(active.refillsLeft),
+    });
+    setEditError(null);
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+    setEditError(null);
+  };
+
+  const saveEdits = async () => {
+    if (!active) return;
+    if (!form.name.trim()) {
+      setEditError("Name can't be empty.");
+      return;
+    }
+    let refills: number | null = null;
+    if (form.refillsLeft.trim() !== "") {
+      const n = parseInt(form.refillsLeft, 10);
+      if (Number.isNaN(n) || n < 0 || n > 99) {
+        setEditError("Refills must be a whole number between 0 and 99.");
+        return;
+      }
+      refills = n;
+    }
+    setBusy(true);
+    setEditError(null);
+    try {
+      await api.medications.update(active.id, {
+        name: form.name.trim(),
+        dosage: form.dosage.trim(),
+        frequency: form.frequency.trim(),
+        purpose: form.purpose.trim(),
+        category: form.category.trim(),
+        sideEffects: active.sideEffects,
+        callDoctor: active.callDoctor,
+        schedule: active.schedule,
+        refillsLeft: refills,
+      });
+      await refetch();
+      setEditing(false);
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Failed to save changes.");
     } finally {
       setBusy(false);
     }
@@ -296,6 +363,17 @@ export default function MedGuide() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="pill bg-brand-50 text-brand-700 ring-1 ring-brand-100">{active.category}</span>
+                {!editing && (
+                  <button
+                    onClick={startEditing}
+                    disabled={busy}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-charcoal-900 text-white text-xs font-semibold hover:bg-charcoal-800 transition disabled:opacity-50"
+                    title={`Edit ${active.name}`}
+                    aria-label={`Edit ${active.name}`}
+                  >
+                    Edit
+                  </button>
+                )}
                 <button
                   onClick={handleDelete}
                   disabled={busy}
@@ -307,6 +385,92 @@ export default function MedGuide() {
                 </button>
               </div>
             </div>
+
+            {editing && (
+              <div className="mt-5 rounded-2xl bg-white ring-1 ring-blush-100 p-4 space-y-3">
+                <p className="text-[11px] uppercase tracking-wider font-bold text-charcoal-800/60">
+                  Edit medication
+                </p>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-semibold text-ink-600 block mb-1">Name</label>
+                    <input
+                      value={form.name}
+                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      className="input w-full text-sm"
+                      placeholder="Medication name"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-ink-600 block mb-1">Dosage</label>
+                    <input
+                      value={form.dosage}
+                      onChange={e => setForm(f => ({ ...f, dosage: e.target.value }))}
+                      className="input w-full text-sm"
+                      placeholder="e.g. 10 mg tablet"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-ink-600 block mb-1">Frequency</label>
+                    <input
+                      value={form.frequency}
+                      onChange={e => setForm(f => ({ ...f, frequency: e.target.value }))}
+                      className="input w-full text-sm"
+                      placeholder="e.g. Once daily"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-ink-600 block mb-1">Category</label>
+                    <input
+                      value={form.category}
+                      onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                      className="input w-full text-sm"
+                      placeholder="e.g. Pain relief"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-[10px] font-semibold text-ink-600 block mb-1">What it's for</label>
+                    <textarea
+                      value={form.purpose}
+                      onChange={e => setForm(f => ({ ...f, purpose: e.target.value }))}
+                      className="input w-full text-sm min-h-[80px] resize-y"
+                      placeholder="Plain-language description"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-ink-600 block mb-1">Refills left</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={99}
+                      value={form.refillsLeft}
+                      onChange={e => setForm(f => ({ ...f, refillsLeft: e.target.value }))}
+                      className="input w-full text-sm"
+                      placeholder="—"
+                    />
+                  </div>
+                </div>
+                {editError && (
+                  <p className="text-xs text-coral-600">{editError}</p>
+                )}
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={cancelEditing}
+                    disabled={busy}
+                    className="btn-secondary disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveEdits}
+                    disabled={busy}
+                    className="btn-primary disabled:opacity-50"
+                  >
+                    {busy ? "Saving…" : "Save changes"}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="mt-5 grid sm:grid-cols-3 gap-3">
               <div className="rounded-2xl bg-mint-50 ring-1 ring-mint-200 p-4">

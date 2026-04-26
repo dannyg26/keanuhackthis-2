@@ -35,7 +35,7 @@
            transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-primary {
-    @apply btn text-white bg-brand-gradient shadow-soft hover:shadow-lg hover:brightness-105;
+    @apply btn text-white bg-charcoal-900 shadow-soft hover:bg-charcoal-800 hover:shadow-lg;
   }
   .btn-secondary {
     @apply btn bg-white border border-ink-200 text-ink-800 hover:border-brand-400 hover:text-brand-700;
