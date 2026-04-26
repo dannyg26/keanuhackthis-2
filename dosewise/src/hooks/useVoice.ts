@@ -77,7 +77,7 @@ export function useVoice(opts: UseVoiceOptions = {}) {
 
     const r = new SR();
     r.lang = "en-US";
-    r.continuous = true;
+    r.continuous = false;
     r.interimResults = true;
     r.maxAlternatives = 1;
 

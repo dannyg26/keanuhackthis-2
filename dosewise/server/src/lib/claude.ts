@@ -1,17 +1,144 @@
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 
-const apiKey = process.env.ANTHROPIC_API_KEY;
-const client = apiKey ? new Anthropic({ apiKey }) : null;
+const apiKey = process.env.GROQ_API_KEY;
+const client = apiKey ? new Groq({ apiKey }) : null;
+
+const MODEL = "llama-3.3-70b-versatile";
 
 const SYSTEM_PROMPT = `You are Dose, a calm, friendly healthcare companion inside the DoseWise app.
 
 Your job:
-- Help the user understand their medications, adherence, bills, and savings.
-- Be brief (1–3 sentences). Be warm but never patronizing.
-- You do NOT diagnose, prescribe, or replace a clinician.
-- For anything urgent or symptom-related, gently suggest contacting a licensed provider.
-- When the user asks about specific data, use the context provided.
+- Answer the user's CURRENT question directly. Focus only on the medication or topic they just asked about — do not repeat or reference previous answers.
+- Use the "Relevant medication data" block when provided — it contains accurate dosing limits and safety info.
+- Be specific and helpful. You CAN discuss dosing limits, risks, and safety info for well-known medications.
+- Be brief (2–4 sentences). Be warm but never patronizing.
+- You do NOT diagnose or prescribe. For personal medical decisions, briefly suggest consulting a provider.
 - Do NOT use emojis. Use plain language and short sentences.`;
+
+// Fallback data used only when openFDA is unreachable
+const MED_SAFETY_FALLBACK: Record<string, string> = {
+  tylenol:       "Acetaminophen (Tylenol): standard adult dose 325–650 mg every 4–6 hours. Max 3,000–4,000 mg/day. Exceeding the limit risks serious liver damage.",
+  acetaminophen: "Acetaminophen: max 4,000 mg/day. Liver damage is the primary overdose risk.",
+  advil:         "Ibuprofen (Advil): 200–400 mg every 4–6 hours, OTC max 1,200 mg/day. Risks: stomach irritation, kidney stress. Take with food.",
+  ibuprofen:     "Ibuprofen: OTC max 1,200 mg/day. GI bleeding and kidney stress risk with high doses.",
+  motrin:        "Ibuprofen (Motrin): 200–400 mg every 4–6 hours, OTC max 1,200 mg/day.",
+  aspirin:       "Aspirin: 325–650 mg every 4–6 hours, max 4 g/day. Never give to children.",
+  aleve:         "Naproxen (Aleve): 220 mg every 8–12 hours, OTC max 660 mg/day.",
+  naproxen:      "Naproxen: OTC max 660 mg/day. GI and cardiovascular risk with long-term use.",
+  benadryl:      "Diphenhydramine (Benadryl): 25–50 mg every 4–6 hours. Causes drowsiness. Max 300 mg/day.",
+  diphenhydramine: "Diphenhydramine: sedating antihistamine. Max 300 mg/day.",
+  claritin:      "Loratadine (Claritin): 10 mg once daily. Non-drowsy.",
+  zyrtec:        "Cetirizine (Zyrtec): 10 mg once daily. May cause mild drowsiness.",
+  melatonin:     "Melatonin: 0.5–5 mg before bed. Not habit-forming.",
+  pepcid:        "Famotidine (Pepcid): 20 mg once or twice daily for heartburn.",
+  omeprazole:    "Omeprazole: 20 mg once daily. Long-term use may reduce magnesium and B12.",
+  prilosec:      "Omeprazole (Prilosec): 20 mg once daily.",
+  metformin:     "Metformin: take with meals. Lactic acidosis risk with impaired kidneys.",
+  lisinopril:    "Lisinopril: may raise potassium levels. May cause dry cough.",
+  atorvastatin:  "Atorvastatin: avoid grapefruit juice. Report muscle pain immediately.",
+  sertraline:    "Sertraline: do not stop abruptly. Serotonin syndrome risk with tramadol or MAOIs.",
+  warfarin:      "Warfarin: many interactions — ibuprofen and aspirin increase bleeding risk.",
+};
+
+// Maps keyword → FDA search terms (brand name or generic)
+const MED_FDA_TERMS: Record<string, { field: string; term: string }[]> = {
+  tylenol:       [{ field: "openfda.brand_name", term: "tylenol" }, { field: "openfda.generic_name", term: "acetaminophen" }],
+  acetaminophen: [{ field: "openfda.generic_name", term: "acetaminophen" }],
+  advil:         [{ field: "openfda.brand_name", term: "advil" }, { field: "openfda.generic_name", term: "ibuprofen" }],
+  ibuprofen:     [{ field: "openfda.generic_name", term: "ibuprofen" }],
+  motrin:        [{ field: "openfda.brand_name", term: "motrin" }, { field: "openfda.generic_name", term: "ibuprofen" }],
+  aspirin:       [{ field: "openfda.generic_name", term: "aspirin" }],
+  aleve:         [{ field: "openfda.brand_name", term: "aleve" }, { field: "openfda.generic_name", term: "naproxen" }],
+  naproxen:      [{ field: "openfda.generic_name", term: "naproxen" }],
+  benadryl:      [{ field: "openfda.brand_name", term: "benadryl" }, { field: "openfda.generic_name", term: "diphenhydramine" }],
+  diphenhydramine: [{ field: "openfda.generic_name", term: "diphenhydramine" }],
+  claritin:      [{ field: "openfda.brand_name", term: "claritin" }, { field: "openfda.generic_name", term: "loratadine" }],
+  zyrtec:        [{ field: "openfda.brand_name", term: "zyrtec" }, { field: "openfda.generic_name", term: "cetirizine" }],
+  melatonin:     [{ field: "openfda.generic_name", term: "melatonin" }],
+  pepcid:        [{ field: "openfda.brand_name", term: "pepcid" }, { field: "openfda.generic_name", term: "famotidine" }],
+  omeprazole:    [{ field: "openfda.generic_name", term: "omeprazole" }],
+  prilosec:      [{ field: "openfda.brand_name", term: "prilosec" }, { field: "openfda.generic_name", term: "omeprazole" }],
+  metformin:     [{ field: "openfda.generic_name", term: "metformin" }],
+  lisinopril:    [{ field: "openfda.generic_name", term: "lisinopril" }],
+  atorvastatin:  [{ field: "openfda.generic_name", term: "atorvastatin" }],
+  sertraline:    [{ field: "openfda.generic_name", term: "sertraline" }],
+  warfarin:      [{ field: "openfda.generic_name", term: "warfarin" }],
+};
+
+type FDALabelResult = Record<string, string[] | undefined>;
+
+async function fetchFDALabel(keyword: string): Promise<string | null> {
+  const searches = MED_FDA_TERMS[keyword];
+  if (!searches) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+
+  try {
+    for (const { field, term } of searches) {
+      const url = `https://api.fda.gov/drug/label.json?search=${field}:"${encodeURIComponent(term)}"&limit=1`;
+      const resp = await fetch(url, { signal: controller.signal });
+      if (!resp.ok) continue;
+
+      const data = await resp.json() as { results?: FDALabelResult[] };
+      const r = data.results?.[0];
+      if (!r) continue;
+
+      const extract = (field: string, max = 250) =>
+        r[field]?.[0]?.replace(/\s+/g, " ").trim().slice(0, max) ?? "";
+
+      const parts: string[] = [];
+      const purpose = extract("purpose", 200);
+      const dosing  = extract("dosage_and_administration", 300);
+      const warning = extract("warnings", 250);
+      const interactions = extract("drug_interactions", 200);
+
+      if (purpose) parts.push(`Purpose: ${purpose}`);
+      if (dosing)  parts.push(`Dosing: ${dosing}`);
+      if (warning) parts.push(`Warnings: ${warning}`);
+      if (interactions) parts.push(`Interactions: ${interactions}`);
+
+      if (parts.length > 0) {
+        clearTimeout(timeout);
+        return `FDA label (${term}):\n${parts.join("\n")}`;
+      }
+    }
+    clearTimeout(timeout);
+    return null;
+  } catch {
+    clearTimeout(timeout);
+    return null;
+  }
+}
+
+async function medSafetyBlock(text: string): Promise<string> {
+  const t = text.toLowerCase();
+  const detected = Object.keys(MED_FDA_TERMS).filter(k => t.includes(k)).slice(0, 2);
+  if (detected.length === 0) return "";
+
+  const lines: string[] = [];
+  for (const key of detected) {
+    const fdaData = await fetchFDALabel(key);
+    if (fdaData) {
+      lines.push(fdaData);
+    } else {
+      const fallback = MED_SAFETY_FALLBACK[key];
+      if (fallback) lines.push(`- ${fallback} (source: reference data)`);
+    }
+  }
+
+  return lines.length
+    ? `Relevant medication data (FDA):\n${lines.join("\n")}`
+    : "";
+}
+
+export interface MedicationDetail {
+  name: string;
+  dosage: string;
+  frequency: string;
+  purpose: string;
+  sideEffects: string[];
+}
 
 export interface CompanionContext {
   riskScore?: number | null;
@@ -19,6 +146,7 @@ export interface CompanionContext {
   adherencePct?: number | null;
   streakDays?: number | null;
   medications?: string[];
+  medicationDetails?: MedicationDetail[];
 }
 
 export interface CompanionMessage {
@@ -87,11 +215,13 @@ function fallbackEnrichment(input: EnrichmentInput): EnrichmentResult {
   };
 }
 
-export async function enrichMedication(input: EnrichmentInput): Promise<EnrichmentResult> {
+export async function enrichMedication(
+  input: EnrichmentInput,
+): Promise<EnrichmentResult> {
   if (!client) return fallbackEnrichment(input);
 
   const ingredients = (input.activeIngredients ?? [])
-    .map(i => `${i.name}${i.strength ? ` (${i.strength})` : ""}`)
+    .map((i) => `${i.name}${i.strength ? ` (${i.strength})` : ""}`)
     .join(", ");
   const promptBody = [
     `Medication name: ${input.name}`,
@@ -99,64 +229,94 @@ export async function enrichMedication(input: EnrichmentInput): Promise<Enrichme
     input.dosageForm ? `Dosage form: ${input.dosageForm}` : null,
     input.route ? `Route: ${input.route}` : null,
     ingredients ? `Active ingredients: ${ingredients}` : null,
-  ].filter(Boolean).join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   try {
-    const resp = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+    const resp = await client.chat.completions.create({
+      model: MODEL,
       max_tokens: 400,
-      system: ENRICH_SYSTEM,
-      messages: [{ role: "user", content: promptBody }],
+      messages: [
+        { role: "system", content: ENRICH_SYSTEM },
+        { role: "user", content: promptBody },
+      ],
     });
-    const block = resp.content.find(b => b.type === "text");
-    const text = block && "text" in block ? block.text.trim() : "";
-    // Strip code fences if Claude added them despite instructions.
-    const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+    const text = resp.choices[0]?.message?.content?.trim() ?? "";
+    const cleaned = text
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "");
     const parsed = JSON.parse(cleaned);
     return {
       purpose: typeof parsed.purpose === "string" ? parsed.purpose : "",
-      sideEffects: Array.isArray(parsed.sideEffects) ? parsed.sideEffects.filter((s: unknown) => typeof s === "string") : [],
-      callDoctor: Array.isArray(parsed.callDoctor) ? parsed.callDoctor.filter((s: unknown) => typeof s === "string") : [],
+      sideEffects: Array.isArray(parsed.sideEffects)
+        ? parsed.sideEffects.filter((s: unknown) => typeof s === "string")
+        : [],
+      callDoctor: Array.isArray(parsed.callDoctor)
+        ? parsed.callDoctor.filter((s: unknown) => typeof s === "string")
+        : [],
       provider: "claude",
     };
   } catch (err) {
-    console.error("Claude enrichment failed, falling back:", err);
+    console.error("Groq enrichment failed, falling back:", err);
     return fallbackEnrichment(input);
   }
 }
 
 export async function companionReply(
-  history: CompanionMessage[],
+  currentMessage: string,
+  _history: CompanionMessage[],
   context: CompanionContext,
 ): Promise<{ reply: string; provider: "claude" | "fallback" }> {
-  const lastUser = [...history].reverse().find(m => m.role === "user")?.content ?? "";
+  const lastUser = currentMessage;
 
   if (!client) {
     return { reply: fallbackReply(lastUser, context), provider: "fallback" };
   }
 
-  const ctxBlock = `User context:
-- Risk score: ${context.riskScore ?? "n/a"} (${context.riskLevel ?? "n/a"})
-- Adherence: ${context.adherencePct ?? "n/a"}%
-- Streak: ${context.streakDays ?? 0} days
-- Medications: ${(context.medications ?? []).join(", ") || "none on file"}`;
+  const medBlock =
+    (context.medicationDetails ?? []).length > 0
+      ? (context.medicationDetails ?? [])
+          .map(
+            (m) =>
+              `  • ${m.name}${m.dosage ? ` (${m.dosage})` : ""}${m.frequency ? `, ${m.frequency}` : ""}${m.purpose ? ` — ${m.purpose}` : ""}${m.sideEffects.length ? `; side effects: ${m.sideEffects.join(", ")}` : ""}`,
+          )
+          .join("\n")
+      : "  none on file";
+
+  const safetyInfo = await medSafetyBlock(lastUser);
+
+  const ctxBlock = [
+    `User context:`,
+    `- Risk score: ${context.riskScore ?? "n/a"} (${context.riskLevel ?? "n/a"})`,
+    `- Adherence: ${context.adherencePct ?? "n/a"}%`,
+    `- Streak: ${context.streakDays ?? 0} days`,
+    `- Medications on file:\n${medBlock}`,
+    safetyInfo ? `\n${safetyInfo}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   try {
-    const resp = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 220,
-      system: [
-        { type: "text", text: SYSTEM_PROMPT },
-        { type: "text", text: ctxBlock, cache_control: { type: "ephemeral" } },
+    const resp = await client.chat.completions.create({
+      model: MODEL,
+      max_tokens: 300,
+      messages: [
+        {
+          role: "system",
+          content: `${SYSTEM_PROMPT}\n\n${ctxBlock}\n\nThe user's current question is: "${lastUser}"\nAnswer ONLY this specific question. Do not reference or repeat anything from earlier in the conversation.`,
+        },
+        { role: "user", content: lastUser },
       ],
-      messages: history.slice(-12).map(m => ({ role: m.role, content: m.content })),
     });
 
-    const block = resp.content.find(b => b.type === "text");
-    const text = block && "text" in block ? block.text.trim() : "";
-    return { reply: text || fallbackReply(lastUser, context), provider: "claude" };
+    const text = resp.choices[0]?.message?.content?.trim() ?? "";
+    return {
+      reply: text || fallbackReply(lastUser, context),
+      provider: "claude",
+    };
   } catch (err) {
-    console.error("Claude API failed, falling back:", err);
+    console.error("Groq API failed, falling back:", err);
     return { reply: fallbackReply(lastUser, context), provider: "fallback" };
   }
 }

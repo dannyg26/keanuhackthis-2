@@ -17,6 +17,10 @@ server/data/*.db
 server/data/*.db-*
 server/.env
 
+# Environment variables
+.env
+.env.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

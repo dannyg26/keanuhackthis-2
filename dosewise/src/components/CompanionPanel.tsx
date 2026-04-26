@@ -73,15 +73,19 @@ export default function CompanionPanel({
   const [tipIndex, setTipIndex] = useState(0);
   const [message, setMessage] = useState<string>(`Hi ${userName}, I'm Dose. Tap the mic and talk to me.`);
   const [showMeds, setShowMeds] = useState(false);
+  const [userReplied, setUserReplied] = useState(false);
   const mouthAmpRef = useRef(0);
+  const micActiveRef = useRef(false);
 
   const handleFinal = async (text: string) => {
     if (!text) return;
+    window.speechSynthesis?.cancel();
     const lower = text.toLowerCase();
     if (/(show|see|view|all).*?(pill|med|vial|lab)/.test(lower) || /show me/.test(lower)) setShowMeds(true);
     if (/(hide|close|stop).*?(pill|med|vial)/.test(lower)) setShowMeds(false);
 
     setMessage("…");
+    micActiveRef.current = false;
     try {
       const { reply } = await api.companion.chat(text, {
         riskScore,
@@ -90,6 +94,7 @@ export default function CompanionPanel({
         streakDays,
         medications: medicationNames ?? [],
       });
+      setUserReplied(true);
       setMessage(reply);
       voice.speak(reply);
     } catch {
@@ -103,27 +108,27 @@ export default function CompanionPanel({
   const voiceSpeakRef = useRef(voice.speak);
   useEffect(() => { voiceSpeakRef.current = voice.speak; }, [voice.speak]);
 
-  // Auto-greet with voice when the companion first mounts
+  // Auto-greet when the companion first mounts
   useEffect(() => {
     const name = userName === "friend" ? "friend" : userName.split(" ")[0];
-    const greeting = `Hi ${name}! I'm Dose, your healthcare copilot. I can help you check your medication risks, track your adherence, decode medical bills, and explore how your meds affect your body. Tap the mic or click Talk to Dose to chat with me anytime!`;
+    const greeting = `Hi ${name}! I'm Dose, your healthcare copilot. Tap the mic or click Talk to Dose to chat with me anytime!`;
     const t = setTimeout(() => {
       setMessage(greeting);
-      voiceSpeakRef.current(greeting);
+      if (!micActiveRef.current) voiceSpeakRef.current(greeting);
     }, 1200);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Rotate tips while idle (after initial greeting)
+  // Rotate tips while idle (only before user has had a real conversation)
   useEffect(() => {
+    if (userReplied) return;
     const t1 = setTimeout(() => setMessage(TIPS_BY_MOOD[mood][0]), 12000);
     return () => clearTimeout(t1);
-  }, [mood]);
+  }, [mood, userReplied]);
 
-  // Rotate tips while idle
   useEffect(() => {
-    if (voice.speaking || voice.listening) return;
+    if (voice.speaking || voice.listening || userReplied) return;
     const id = setInterval(() => {
       setTipIndex(i => {
         const next = (i + 1) % TIPS_BY_MOOD[mood].length;
@@ -132,7 +137,7 @@ export default function CompanionPanel({
       });
     }, 12000);
     return () => clearInterval(id);
-  }, [mood, voice.speaking, voice.listening]);
+  }, [mood, voice.speaking, voice.listening, userReplied]);
 
   const newTip = () => {
     const list = TIPS_BY_MOOD[mood];
@@ -144,10 +149,12 @@ export default function CompanionPanel({
 
   const toggleMic = () => {
     if (voice.listening) {
+      micActiveRef.current = false;
       voice.stop();
     } else if (voice.supported.recognition) {
-      voice.cancel(); // stop Dose speaking before listening
-      voice.start();
+      micActiveRef.current = true;
+      voice.cancel();
+      setTimeout(() => voice.start(), 600);
     } else {
       voice.speak(message);
     }
@@ -164,9 +171,9 @@ export default function CompanionPanel({
       <div className="absolute -top-16 -right-16 w-72 h-72 rounded-full bg-butter-200/60 blur-3xl" aria-hidden />
       <div className="absolute -bottom-20 -left-10 w-60 h-60 rounded-full bg-lavender-200/50 blur-3xl" aria-hidden />
 
-      <div className="relative grid sm:grid-cols-5 gap-4 p-6">
+      <div className="relative grid sm:grid-cols-5 gap-6 px-6 pt-8 pb-10">
         {/* Companion canvas */}
-        <div className="sm:col-span-3 relative h-80 sm:h-96">
+        <div className="sm:col-span-3 relative h-[26rem] sm:h-[32rem]">
           <Suspense
             fallback={
               <div className="w-full h-full flex items-center justify-center text-ink-400 text-sm">
