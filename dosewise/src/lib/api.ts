@@ -130,6 +130,16 @@ export const api = {
     create: (body: MedicationInput) => request<{ medication: Medication }>("/api/medications", { method: "POST", body: JSON.stringify(body) }),
     update: (id: string, body: MedicationInput) => request<{ medication: Medication }>(`/api/medications/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     remove: (id: string) => request<void>(`/api/medications/${id}`, { method: "DELETE" }),
+    enrich: (body: {
+      name: string;
+      genericName?: string;
+      dosageForm?: string;
+      route?: string;
+      activeIngredients?: Array<{ name: string; strength?: string }>;
+    }) => request<{ enrichment: { purpose: string; sideEffects: string[]; callDoctor: string[]; provider: "claude" | "fallback" } }>(
+      "/api/medications/enrich",
+      { method: "POST", body: JSON.stringify(body) },
+    ),
   },
 
   adherence: {

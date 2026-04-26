@@ -5,12 +5,12 @@ import { useAuth } from "../contexts/AuthContext";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard",      icon: HomeIcon,    short: "Home" },
-  { to: "/risk",      label: "Risk Engine",    icon: ShieldIcon,  short: "Risk" },
+  { to: "/medguide",  label: "MedGuide",       icon: BookIcon,    short: "Guide" },
   { to: "/adherence", label: "Adherence",      icon: PillIcon,    short: "Doses" },
   { to: "/bills",     label: "Bill Breakdown", icon: ReceiptIcon, short: "Bills" },
   { to: "/body",      label: "Body Map",       icon: BodyIcon,    short: "Body" },
+  { to: "/risk",      label: "Risk Engine",    icon: ShieldIcon,  short: "Risk" },
   { to: "/savings",   label: "Savings",        icon: TagIcon,     short: "Save" },
-  { to: "/medguide",  label: "MedGuide",       icon: BookIcon,    short: "Guide" },
 ];
 
 export default function Layout() {

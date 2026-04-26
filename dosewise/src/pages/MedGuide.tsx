@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import PageHeader from "../components/PageHeader";
 import {
-  SearchIcon, PillIcon, ClockIcon, AlertIcon, CheckIcon, BookIcon, SunIcon, MoonIcon, CoffeeIcon, SparklesIcon, ScanIcon,
+  SearchIcon, PillIcon, ClockIcon, AlertIcon, CheckIcon, BookIcon, SunIcon, MoonIcon, CoffeeIcon, SparklesIcon, ScanIcon, XIcon, PlusIcon,
 } from "../components/Icon";
 import { api, type Medication } from "../lib/api";
 import { useApi } from "../lib/useApi";
@@ -23,12 +23,17 @@ const SLOT_META = {
 } as const;
 
 export default function MedGuide() {
-  const { data, loading, error } = useApi(() => api.medications.list());
+  const { data, loading, error, refetch } = useApi(() => api.medications.list());
   const meds: Medication[] = data?.medications ?? [];
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(false);
+  const [newSlotTime, setNewSlotTime] = useState("08:00");
+  const [newSlotLabel, setNewSlotLabel] = useState("Morning dose");
+  const [newSlotWithFood, setNewSlotWithFood] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   // Once meds load, default-select the first one
   useEffect(() => {
@@ -46,6 +51,68 @@ export default function MedGuide() {
   }, [query, meds]);
 
   const active = meds.find(m => m.id === activeId) ?? null;
+
+  const deleteMedication = async (med: Medication) => {
+    if (!confirm(`Delete ${med.name}? This can't be undone.`)) return;
+    setBusy(true);
+    try {
+      await api.medications.remove(med.id);
+      // If we just removed the active med, switch to another one (or clear if none left)
+      // so we don't flash the empty state.
+      if (activeId === med.id) {
+        const remaining = meds.filter(m => m.id !== med.id);
+        setActiveId(remaining[0]?.id ?? null);
+      }
+      await refetch();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to delete medication.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (!active) return;
+    void deleteMedication(active);
+  };
+
+  const saveSchedule = async (nextSchedule: Medication["schedule"]) => {
+    if (!active) return;
+    setBusy(true);
+    try {
+      await api.medications.update(active.id, {
+        name: active.name,
+        dosage: active.dosage,
+        frequency: active.frequency,
+        purpose: active.purpose,
+        category: active.category,
+        sideEffects: active.sideEffects,
+        callDoctor: active.callDoctor,
+        schedule: nextSchedule,
+        refillsLeft: active.refillsLeft,
+      });
+      await refetch();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to update schedule.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addSlot = async () => {
+    if (!active) return;
+    const next = [...active.schedule, { time: newSlotTime, label: newSlotLabel.trim() || "Dose", withFood: newSlotWithFood }]
+      .sort((a, b) => a.time.localeCompare(b.time));
+    await saveSchedule(next);
+    setNewSlotLabel("Morning dose");
+    setNewSlotTime("08:00");
+    setNewSlotWithFood(false);
+  };
+
+  const removeSlot = async (time: string) => {
+    if (!active) return;
+    await saveSchedule(active.schedule.filter(s => s.time !== time));
+  };
 
   // Aggregate daily schedule grouped by slot
   const dailySchedule = useMemo(() => {
@@ -78,9 +145,29 @@ export default function MedGuide() {
     return (
       <>
         <PageHeader eyebrow="MedGuide" title="Explain my medication" />
-        <div className="card text-center text-ink-400 py-16">
-          You don't have any medications yet.
+        <div className="card text-center py-16 space-y-4">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-blush-100 flex items-center justify-center">
+            <PillIcon className="w-7 h-7 text-blush-500" />
+          </div>
+          <div>
+            <p className="text-lg font-bold text-charcoal-900">No medications yet</p>
+            <p className="text-sm text-ink-500 mt-1">Scan a bottle to add one — DoseWise will look it up and fill in the details.</p>
+          </div>
+          <button onClick={() => setScannerOpen(true)} className="btn-primary mx-auto px-5 py-3">
+            <ScanIcon className="w-4 h-4" /> Scan a medicine bottle
+          </button>
         </div>
+        {scannerOpen && (
+          <MedScanner
+            meds={meds}
+            onClose={() => setScannerOpen(false)}
+            onMatch={async (medId) => {
+              setScannerOpen(false);
+              await refetch();
+              setActiveId(medId);
+            }}
+          />
+        )}
       </>
     );
   }
@@ -120,15 +207,17 @@ export default function MedGuide() {
             <ul className="mt-4 space-y-2">
               {filtered.map(m => (
                 <li key={m.id}>
-                  <button
-                    onClick={() => setActiveId(m.id)}
-                    className={`w-full text-left p-3 rounded-2xl transition border-2 ${
+                  <div
+                    className={`group w-full p-3 rounded-2xl transition border-2 flex items-center gap-2 ${
                       m.id === activeId
                         ? "border-brand-400 bg-brand-50"
                         : "border-transparent hover:bg-ink-50"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setActiveId(m.id)}
+                      className="flex-1 min-w-0 text-left flex items-center gap-3"
+                    >
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                         m.id === activeId ? "bg-brand-gradient text-white shadow-soft" : "bg-white ring-1 ring-ink-100 text-brand-700"
                       }`}>
@@ -138,8 +227,17 @@ export default function MedGuide() {
                         <p className="font-semibold text-ink-900 truncate">{m.name}</p>
                         <p className="text-xs text-ink-600 truncate">{m.dosage} · {m.category}</p>
                       </div>
-                    </div>
-                  </button>
+                    </button>
+                    <button
+                      onClick={() => deleteMedication(m)}
+                      disabled={busy}
+                      className="shrink-0 w-8 h-8 rounded-full bg-white shadow-soft ring-1 ring-coral-100 flex items-center justify-center text-coral-500 hover:text-coral-600 hover:ring-coral-200 transition disabled:opacity-50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                      title={`Delete ${m.name}`}
+                      aria-label={`Delete ${m.name}`}
+                    >
+                      <XIcon className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </li>
               ))}
               {filtered.length === 0 && (
@@ -196,7 +294,18 @@ export default function MedGuide() {
                 <h2 className="text-2xl font-extrabold mt-1">{active.name}</h2>
                 <p className="text-ink-600">{active.dosage} · {active.frequency}</p>
               </div>
-              <span className="pill bg-brand-50 text-brand-700 ring-1 ring-brand-100">{active.category}</span>
+              <div className="flex items-center gap-2">
+                <span className="pill bg-brand-50 text-brand-700 ring-1 ring-brand-100">{active.category}</span>
+                <button
+                  onClick={handleDelete}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-coral-50 text-coral-600 ring-1 ring-coral-100 text-xs font-semibold hover:bg-coral-100 hover:ring-coral-200 transition disabled:opacity-50"
+                  title={`Delete ${active.name}`}
+                  aria-label={`Delete ${active.name}`}
+                >
+                  <XIcon className="w-3.5 h-3.5" /> Delete
+                </button>
+              </div>
             </div>
 
             <div className="mt-5 grid sm:grid-cols-3 gap-3">
@@ -237,12 +346,21 @@ export default function MedGuide() {
           <div className="card bg-lavender-50 border-lavender-100">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="section-title">Visual daily schedule</p>
+                <p className="section-title">Daily schedule</p>
                 <h3 className="text-lg font-bold mt-1">When to take {active.name}</h3>
               </div>
-              <span className="pill bg-ink-100 text-ink-600">
-                <BookIcon className="w-3.5 h-3.5" /> Refills left: {active.refillsLeft ?? "—"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="pill bg-ink-100 text-ink-600">
+                  <BookIcon className="w-3.5 h-3.5" /> Refills left: {active.refillsLeft ?? "—"}
+                </span>
+                <button
+                  onClick={() => setEditingSchedule(v => !v)}
+                  className="pill bg-white text-charcoal-800 ring-1 ring-charcoal-800/15 hover:ring-charcoal-800/40 transition"
+                >
+                  <ClockIcon className="w-3.5 h-3.5" />
+                  {editingSchedule ? "Done" : "Edit times"}
+                </button>
+              </div>
             </div>
             <div className="relative">
               <div className="h-2 rounded-full bg-gradient-to-r from-sun-100 via-mint-100 via-sky2-100 to-brand-100" />
@@ -250,13 +368,19 @@ export default function MedGuide() {
                 <span>Morning</span><span className="text-center">Midday</span><span className="text-center">Evening</span><span className="text-right">Night</span>
               </div>
 
+              {active.schedule.length === 0 && !editingSchedule && (
+                <div className="mt-6 rounded-2xl bg-white/70 ring-1 ring-lavender-100 p-6 text-center">
+                  <p className="text-sm text-ink-600">No times set yet. Click <span className="font-semibold">Edit times</span> to add when you should take this medication.</p>
+                </div>
+              )}
+
               <ul className="mt-6 grid sm:grid-cols-2 gap-3">
                 {active.schedule.map(s => {
                   const slot = timeOfDay(s.time);
                   const meta = SLOT_META[slot];
                   const Icon = meta.icon;
                   return (
-                    <li key={s.time} className={`p-4 rounded-2xl bg-gradient-to-br ${meta.color} ring-1`}>
+                    <li key={s.time} className={`p-4 rounded-2xl bg-gradient-to-br ${meta.color} ring-1 relative group`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${meta.dot} text-white`}>
@@ -267,14 +391,61 @@ export default function MedGuide() {
                             <p className="text-xs text-ink-600">{s.time}</p>
                           </div>
                         </div>
-                        <span className="pill bg-white text-ink-600 ring-1 ring-ink-100">
-                          {s.withFood ? "With food" : "Anytime"}
-                        </span>
+                        {editingSchedule ? (
+                          <button
+                            onClick={() => removeSlot(s.time)}
+                            disabled={busy}
+                            className="w-7 h-7 rounded-full bg-white shadow-soft ring-1 ring-coral-100 flex items-center justify-center text-coral-500 hover:text-coral-600 hover:ring-coral-200 transition disabled:opacity-50"
+                            aria-label={`Remove ${s.label} at ${s.time}`}
+                          >
+                            <XIcon className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <span className="pill bg-white text-ink-600 ring-1 ring-ink-100">
+                            {s.withFood ? "With food" : "Anytime"}
+                          </span>
+                        )}
                       </div>
                     </li>
                   );
                 })}
               </ul>
+
+              {editingSchedule && (
+                <div className="mt-4 rounded-2xl bg-white ring-1 ring-lavender-200 p-4">
+                  <p className="text-[11px] uppercase tracking-wider font-bold text-charcoal-800/60 mb-2">Add a dose time</p>
+                  <div className="grid sm:grid-cols-4 gap-2">
+                    <input
+                      type="time"
+                      value={newSlotTime}
+                      onChange={e => setNewSlotTime(e.target.value)}
+                      className="input"
+                    />
+                    <input
+                      type="text"
+                      value={newSlotLabel}
+                      onChange={e => setNewSlotLabel(e.target.value)}
+                      placeholder="Label (e.g. Morning dose)"
+                      className="input sm:col-span-2"
+                    />
+                    <label className="flex items-center gap-2 px-3 rounded-xl bg-mint-50 ring-1 ring-mint-200 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newSlotWithFood}
+                        onChange={e => setNewSlotWithFood(e.target.checked)}
+                      />
+                      <span className="text-xs font-semibold text-mint-500">With food</span>
+                    </label>
+                  </div>
+                  <button
+                    onClick={addSlot}
+                    disabled={busy || !newSlotTime}
+                    className="btn-primary w-full justify-center mt-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <PlusIcon className="w-4 h-4" /> Add dose time
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -312,9 +483,10 @@ export default function MedGuide() {
         <MedScanner
           meds={meds}
           onClose={() => setScannerOpen(false)}
-          onMatch={(medId) => {
-            setActiveId(medId);
+          onMatch={async (medId) => {
             setScannerOpen(false);
+            await refetch();
+            setActiveId(medId);
           }}
         />
       )}

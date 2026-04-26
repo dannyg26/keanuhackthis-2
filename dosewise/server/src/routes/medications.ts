@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { db, uid } from "../db.ts";
 import { requireAuth, type AuthedRequest } from "../auth.ts";
+import { enrichMedication } from "../lib/claude.ts";
 
 const router = Router();
 router.use(requireAuth);
@@ -21,7 +22,7 @@ const Body = z.object({
   sideEffects: z.array(z.string()).default([]),
   callDoctor: z.array(z.string()).default([]),
   schedule: z.array(ScheduleSlot).default([]),
-  refillsLeft: z.number().int().min(0).max(99).optional(),
+  refillsLeft: z.number().int().min(0).max(99).nullable().optional(),
 });
 
 interface Row {
@@ -104,6 +105,24 @@ router.delete("/:id", (req: AuthedRequest, res) => {
   const result = deleteStmt.run(req.params.id, req.user!.id);
   if (result.changes === 0) return res.status(404).json({ error: "Medication not found" });
   res.status(204).end();
+});
+
+const EnrichBody = z.object({
+  name: z.string().min(1).max(120),
+  genericName: z.string().max(200).optional(),
+  dosageForm: z.string().max(80).optional(),
+  route: z.string().max(80).optional(),
+  activeIngredients: z.array(z.object({
+    name: z.string(),
+    strength: z.string().optional(),
+  })).optional(),
+});
+
+router.post("/enrich", async (req: AuthedRequest, res) => {
+  const parsed = EnrichBody.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message });
+  const result = await enrichMedication(parsed.data);
+  res.json({ enrichment: result });
 });
 
 export default router;

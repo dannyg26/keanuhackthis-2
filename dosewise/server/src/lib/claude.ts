@@ -45,6 +45,86 @@ function fallbackReply(text: string, ctx: CompanionContext): string {
   return `I'm not sure I caught that. Try asking about your risk, adherence, bills, savings, or your pills.`;
 }
 
+export interface EnrichmentInput {
+  name: string;
+  genericName?: string;
+  dosageForm?: string;
+  route?: string;
+  activeIngredients?: Array<{ name: string; strength?: string }>;
+}
+export interface EnrichmentResult {
+  purpose: string;
+  sideEffects: string[];
+  callDoctor: string[];
+  provider: "claude" | "fallback";
+}
+
+const ENRICH_SYSTEM = `You generate concise patient-education info for a medication.
+Return STRICT JSON with this shape — no prose, no markdown:
+{
+  "purpose": string,            // 1 short sentence, plain English. What the med is commonly used for.
+  "sideEffects": string[],      // 4 most common side effects, each 2-5 words
+  "callDoctor": string[]        // 4 warning signs that warrant calling a doctor, each 4-10 words
+}
+Rules:
+- Patient-friendly language. No jargon, no diagnoses.
+- If the med is unfamiliar, give general guidance based on the drug class or active ingredient.
+- Never recommend doses or replace clinician advice.`;
+
+function fallbackEnrichment(input: EnrichmentInput): EnrichmentResult {
+  return {
+    purpose: input.genericName
+      ? `Contains ${input.genericName.toLowerCase()}. Ask your pharmacist for specifics.`
+      : "Recently scanned medication. Add details from the label.",
+    sideEffects: ["Nausea", "Drowsiness", "Headache", "Upset stomach"],
+    callDoctor: [
+      "Severe allergic reaction (hives, swelling)",
+      "Trouble breathing or chest pain",
+      "Symptoms get worse, not better",
+      "Unusual or persistent side effects",
+    ],
+    provider: "fallback",
+  };
+}
+
+export async function enrichMedication(input: EnrichmentInput): Promise<EnrichmentResult> {
+  if (!client) return fallbackEnrichment(input);
+
+  const ingredients = (input.activeIngredients ?? [])
+    .map(i => `${i.name}${i.strength ? ` (${i.strength})` : ""}`)
+    .join(", ");
+  const promptBody = [
+    `Medication name: ${input.name}`,
+    input.genericName ? `Generic name: ${input.genericName}` : null,
+    input.dosageForm ? `Dosage form: ${input.dosageForm}` : null,
+    input.route ? `Route: ${input.route}` : null,
+    ingredients ? `Active ingredients: ${ingredients}` : null,
+  ].filter(Boolean).join("\n");
+
+  try {
+    const resp = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 400,
+      system: ENRICH_SYSTEM,
+      messages: [{ role: "user", content: promptBody }],
+    });
+    const block = resp.content.find(b => b.type === "text");
+    const text = block && "text" in block ? block.text.trim() : "";
+    // Strip code fences if Claude added them despite instructions.
+    const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+    const parsed = JSON.parse(cleaned);
+    return {
+      purpose: typeof parsed.purpose === "string" ? parsed.purpose : "",
+      sideEffects: Array.isArray(parsed.sideEffects) ? parsed.sideEffects.filter((s: unknown) => typeof s === "string") : [],
+      callDoctor: Array.isArray(parsed.callDoctor) ? parsed.callDoctor.filter((s: unknown) => typeof s === "string") : [],
+      provider: "claude",
+    };
+  } catch (err) {
+    console.error("Claude enrichment failed, falling back:", err);
+    return fallbackEnrichment(input);
+  }
+}
+
 export async function companionReply(
   history: CompanionMessage[],
   context: CompanionContext,
